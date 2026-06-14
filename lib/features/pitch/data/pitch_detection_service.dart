@@ -27,6 +27,7 @@ class PitchDetectionService extends ChangeNotifier {
     bufferSize: bufferSize,
   );
 
+  bool _isInitialized = false;
   bool _isListening = false;
   MusicalNote? _note;
   String? _error;
@@ -55,6 +56,11 @@ class PitchDetectionService extends ChangeNotifier {
     }
 
     try {
+      // flutter_audio_capture exige init() una vez antes de start().
+      if (!_isInitialized) {
+        await _audioCapture.init();
+        _isInitialized = true;
+      }
       await _audioCapture.start(
         _onAudio,
         _onError,
