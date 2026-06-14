@@ -31,7 +31,7 @@ class AudioFileService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+      final result = await FilePicker.pickFiles(type: FileType.audio);
       final path = result?.files.single.path;
       if (path == null) {
         // El usuario canceló la selección.
