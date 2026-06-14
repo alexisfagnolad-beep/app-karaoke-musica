@@ -25,7 +25,9 @@ dependencies:
   permission_handler: ^11.3.1
 
   # Abrir un archivo de audio propio con el selector nativo del celular.
-  file_picker: ^11.0.0
+  # Se fija la línea 10.3.x: la 11.x rompe el build nativo de Android con el
+  # scaffolding por defecto (registrant no encuentra FilePickerPlugin).
+  file_picker: ^10.3.0
 
   # Reproducción de audio local (play/pausa/seek + posición en vivo).
   just_audio: ^0.10.4
