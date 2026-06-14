@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'features/pitch/presentation/live_pitch_screen.dart';
+import 'features/home/presentation/home_screen.dart';
 
 /// Raíz de la app de Karaoke / Práctica Musical.
 /// Por ahora arranca directo en la detección de pitch en vivo (paso 2 del
@@ -24,7 +24,7 @@ class KaraokeApp extends StatelessWidget {
         colorScheme: colorScheme,
         scaffoldBackgroundColor: const Color(0xFF12101A),
       ),
-      home: const LivePitchScreen(),
+      home: const HomeScreen(),
     );
   }
 }

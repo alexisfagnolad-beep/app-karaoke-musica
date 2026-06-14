@@ -14,15 +14,21 @@ Este repo ya trae el **esqueleto Flutter** y la **detección de pitch en vivo**
 lib/
   main.dart                         # arranque de la app
   app.dart                          # MaterialApp + tema
-  features/pitch/
-    domain/musical_note.dart        # Hz -> nota + cents (con test)
-    data/pitch_detection_service.dart  # micrófono + YIN en vivo
-    presentation/
-      live_pitch_screen.dart        # pantalla de afinación
-      widgets/note_display.dart     # nota grande + frecuencia
-      widgets/cents_meter.dart      # aguja de afinación (cents)
+  features/
+    home/presentation/home_screen.dart   # inicio: elegir función
+    pitch/                                # PASO 2: afinación en vivo
+      domain/musical_note.dart            # Hz -> nota + cents (con test)
+      data/pitch_detection_service.dart   # micrófono + YIN en vivo
+      presentation/
+        live_pitch_screen.dart            # pantalla de afinación
+        widgets/note_display.dart         # nota grande + frecuencia
+        widgets/cents_meter.dart          # aguja de afinación (cents)
+    player/                               # PASO 3: abrir y reproducir MP3
+      data/audio_file_service.dart        # file_picker + just_audio
+      presentation/player_screen.dart     # play/pausa + barra de progreso
 test/
   musical_note_test.dart            # valida la matemática de las notas
+  widget_test.dart                  # valida que arranque el inicio
 ```
 
 ## 1. Generar las carpetas nativas (una vez)

@@ -24,6 +24,12 @@ dependencies:
   # Permiso de micrófono en Android/iOS en tiempo de ejecución.
   permission_handler: ^11.3.1
 
+  # Abrir un archivo de audio propio con el selector nativo del celular.
+  file_picker: ^11.0.0
+
+  # Reproducción de audio local (play/pausa/seek + posición en vivo).
+  just_audio: ^0.10.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
