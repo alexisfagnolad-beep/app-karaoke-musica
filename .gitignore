@@ -1,0 +1,30 @@
+# Archivos generados por Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Símbolos / nativo
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+*.jks
+
+# Sistema
+.DS_Store

@@ -1,0 +1,33 @@
+name: karaoke_musica
+description: "App de karaoke y práctica musical — Modo Karaoke Rápido (celular)."
+# El proyecto no se publica en pub.dev.
+publish_to: 'none'
+
+# Versión de la app: <semver>+<build>
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # Captura de micrófono: entrega un stream de muestras PCM (Float64) en vivo.
+  flutter_audio_capture: ^1.1.9
+
+  # Detección de pitch en tiempo real (algoritmo YIN), como pide el README.
+  pitch_detector_dart: ^0.0.7
+
+  # Permiso de micrófono en Android/iOS en tiempo de ejecución.
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
