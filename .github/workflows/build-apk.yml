@@ -10,6 +10,10 @@ on:
   pull_request:
   workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
 
+# Necesario para que el job pueda crear/actualizar la Release con el APK.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,3 +60,19 @@ jobs:
           name: karaoke-musica-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+      - name: Renombrar APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk karaoke-musica-debug.apk
+
+      # Publica el APK en una Release con tag fijo: la URL queda estable y se
+      # actualiza el mismo archivo en cada build de la rama por defecto.
+      - name: Publicar APK en Release (link estable)
+        if: github.ref == 'refs/heads/claude/charming-thompson-21cbj2'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: APK de Karaoke (Android, debug)
+          body: |
+            APK de debug del Modo Karaoke Rápido. Se actualiza automáticamente
+            en cada build. Descargá `karaoke-musica-debug.apk` de abajo.
+          files: karaoke-musica-debug.apk
