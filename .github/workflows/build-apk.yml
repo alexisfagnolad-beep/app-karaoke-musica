@@ -44,11 +44,15 @@ jobs:
           mkdir -p ~/.android
           cp ci/debug.keystore ~/.android/debug.keystore
 
-      - name: Inyectar permiso de micrófono
+      - name: Inyectar permisos (micrófono + instalar APKs)
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
             sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application|' "$MANIFEST"
+          fi
+          # Necesario para que el actualizador integrado pueda instalar el APK.
+          if ! grep -q "android.permission.REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <application|' "$MANIFEST"
           fi
           echo "----- AndroidManifest.xml -----"
           cat "$MANIFEST"
@@ -71,12 +75,18 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
 
-      - name: Renombrar APK
-        run: cp build/app/outputs/flutter-apk/app-debug.apk karaoke-musica-debug.apk
+      - name: Renombrar APK y generar version.json
+        run: |
+          cp build/app/outputs/flutter-apk/app-debug.apk karaoke-musica-debug.apk
+          # version.json: lo lee el actualizador integrado para saber si hay
+          # una versión más nueva que la instalada (compara buildNumber).
+          VERSION_NAME=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
+          printf '{"buildNumber": %s, "versionName": "%s"}\n' "${{ github.run_number }}" "$VERSION_NAME" > version.json
+          cat version.json
 
-      # Publica el APK en una Release con tag fijo: la URL queda estable y se
-      # actualiza el mismo archivo en cada build de la rama por defecto.
-      - name: Publicar APK en Release (link estable)
+      # Publica el APK y version.json en una Release con tag fijo: la URL queda
+      # estable y se actualizan los mismos archivos en cada build de la rama.
+      - name: Publicar en Release (link estable)
         if: github.ref == 'refs/heads/claude/charming-thompson-21cbj2'
         uses: softprops/action-gh-release@v2
         with:
@@ -85,4 +95,6 @@ jobs:
           body: |
             APK de debug del Modo Karaoke Rápido. Se actualiza automáticamente
             en cada build. Descargá `karaoke-musica-debug.apk` de abajo.
-          files: karaoke-musica-debug.apk
+          files: |
+            karaoke-musica-debug.apk
+            version.json

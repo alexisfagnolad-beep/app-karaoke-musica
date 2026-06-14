@@ -32,6 +32,13 @@ dependencies:
   # Reproducción de audio local (play/pausa/seek + posición en vivo).
   just_audio: ^0.10.4
 
+  # --- Actualizador integrado (celular + PC) ---
+  http: ^1.2.0                    # consultar la API de GitHub y descargar
+  flutter_secure_storage: ^9.2.2  # guardar el token local de forma segura
+  package_info_plus: ^8.0.0       # versión instalada (para comparar)
+  path_provider: ^2.1.4           # carpeta donde guardar la descarga
+  open_filex: ^4.5.0              # abrir el APK/instalador descargado
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

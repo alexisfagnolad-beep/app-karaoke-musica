@@ -2,17 +2,82 @@ import 'package:flutter/material.dart';
 
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../update/data/update_service.dart';
+import '../../update/presentation/update_screen.dart';
 
 /// Pantalla de inicio del Modo Karaoke Rápido. Por ahora ofrece las dos
 /// funciones ya construidas; más adelante se integrarán en un único flujo
 /// (abrir MP3 -> atenuar voz -> guía de afinación -> puntaje).
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final UpdateService _updateService = UpdateService();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUpdatesOnStart();
+  }
+
+  /// Chequeo silencioso al arrancar: si hay token y una versión nueva,
+  /// avisa con un cartel para actualizar con un toque.
+  Future<void> _checkUpdatesOnStart() async {
+    // Protegido: en entornos sin plugins (tests) no debe romper la pantalla.
+    try {
+      await _updateService.init();
+      if (!_updateService.hasToken) return;
+      await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (_updateService.status == UpdateStatus.available) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_updateService.message ?? 'Hay una versión nueva'),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Actualizar',
+              onPressed: _openUpdates,
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // Silencioso: el usuario igual puede chequear a mano desde el inicio.
+    }
+  }
+
+  void _openUpdates() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UpdateScreen(service: _updateService),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _updateService.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Karaoke Música'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Karaoke Música'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Actualizaciones',
+            icon: const Icon(Icons.system_update),
+            onPressed: _openUpdates,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -39,6 +104,13 @@ class HomeScreen extends StatelessWidget {
                     builder: (_) => const PlayerScreen(),
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              _MenuCard(
+                icon: Icons.system_update,
+                title: 'Actualizaciones',
+                subtitle: 'Buscar e instalar la última versión de la app.',
+                onTap: _openUpdates,
               ),
             ],
           ),
