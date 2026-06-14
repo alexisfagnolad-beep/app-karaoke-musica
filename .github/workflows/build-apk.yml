@@ -1,0 +1,58 @@
+name: Build APK (Android)
+
+# Compila un APK de debug instalable en Android y corre los tests.
+# Como el repo todavía no tiene la carpeta nativa android/, el workflow la
+# genera con `flutter create .` y le inyecta el permiso de micrófono.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generar carpetas nativas (android)
+        run: flutter create . --platforms=android --project-name karaoke_musica
+
+      - name: Inyectar permiso de micrófono
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application|' "$MANIFEST"
+          fi
+          echo "----- AndroidManifest.xml -----"
+          cat "$MANIFEST"
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Tests
+        run: flutter test
+
+      - name: Compilar APK de debug
+        run: flutter build apk --debug
+
+      - name: Subir APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: karaoke-musica-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error

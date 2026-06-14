@@ -77,8 +77,11 @@ verás la nota (ej. `A4`), su frecuencia en Hz y la aguja de cents.
 - **GitHub Codespaces** (desde el navegador del celular): da una máquina Linux
   donde instalás Flutter y corrés `flutter test`. Para *ver* la app en el
   teléfono conviene compilar un APK.
-- **Codemagic / GitHub Actions**: CI en la nube que compila el APK a partir de
-  este repo y te lo da para instalar en Android.
+- **GitHub Actions (ya configurado)**: cada push a tu rama dispara el workflow
+  `Build APK (Android)`. Entrá a la pestaña **Actions** del repo (se ve bien
+  desde el celular), abrí la última corrida y bajá el artefacto
+  `karaoke-musica-debug-apk`. También podés lanzarlo a mano con
+  **"Run workflow"** (workflow_dispatch).
 - **Un APK de debug** generado en cualquiera de los anteriores se instala
   directo en Android para probar el micrófono de verdad.
 
