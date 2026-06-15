@@ -118,9 +118,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.mic_off),
-            title: const Text('Atenuar voz (karaoke)'),
-            subtitle: const Text('Baja la voz para cantar encima. Instantáneo '
-                'pero imperfecto según la grabación.'),
+            title: const Text('Atenuar voz (modo fiesta)'),
+            subtitle: const Text('Calidad básica: baja la voz al instante, pero '
+                'puede sonar metálico. Para divertirse suele bastar dejarlo '
+                'apagado y cantar sobre la canción original. La separación '
+                'limpia llega con la versión de PC (Demucs).'),
             value: _service.voiceAttenuated,
             onChanged: (v) => _service.setVoiceAttenuated(v),
           ),
