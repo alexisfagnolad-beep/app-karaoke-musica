@@ -70,6 +70,22 @@ class AudioFileService extends ChangeNotifier {
     }
   }
 
+  /// Carga directamente una canción por su ruta (p. ej. desde la biblioteca).
+  Future<void> loadPath(String path, String name) async {
+    _error = null;
+    _fileName = name;
+    _originalPath = path;
+    _decodedPath = null;
+    _processedPath = null;
+    _voiceAttenuated = false;
+    try {
+      await player.setAudioSource(AudioSource.uri(Uri.file(path)));
+    } catch (e) {
+      _error = 'No se pudo abrir la canción: $e';
+    }
+    notifyListeners();
+  }
+
   /// Activa o desactiva la atenuación de voz, recargando la pista que suena
   /// y conservando la posición y si estaba reproduciendo.
   Future<void> setVoiceAttenuated(bool value) async {

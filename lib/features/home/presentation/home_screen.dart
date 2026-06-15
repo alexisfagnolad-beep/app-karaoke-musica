@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../../update/data/update_service.dart';
@@ -79,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
@@ -91,6 +92,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const LivePitchScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _MenuCard(
+                icon: Icons.library_music,
+                title: 'Biblioteca',
+                subtitle: 'Tus canciones por género e instrumento.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LibraryScreen(),
                   ),
                 ),
               ),

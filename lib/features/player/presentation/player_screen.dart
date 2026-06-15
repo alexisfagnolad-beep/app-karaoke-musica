@@ -6,7 +6,12 @@ import '../data/audio_file_service.dart';
 /// Pantalla del paso 3: abrir y reproducir un MP3 propio desde el celular,
 /// con play/pausa y barra de progreso.
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key});
+  const PlayerScreen({super.key, this.initialPath, this.initialName});
+
+  /// Si se pasan, la pantalla abre directamente esta canción (desde la
+  /// biblioteca) en vez de pedir un archivo.
+  final String? initialPath;
+  final String? initialName;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -17,6 +22,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Valor mientras se arrastra la barra de progreso (para que no "salte").
   double? _dragSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPath != null) {
+      _service.loadPath(widget.initialPath!, widget.initialName ?? 'Canción');
+    }
+  }
 
   @override
   void dispose() {
