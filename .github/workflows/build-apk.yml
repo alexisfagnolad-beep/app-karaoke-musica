@@ -38,11 +38,13 @@ jobs:
 
       # Firma todos los builds con la MISMA clave fija (ci/debug.keystore) en
       # vez de una aleatoria por runner. Así las actualizaciones se instalan
-      # sobre la app anterior sin "no se puede instalar" por firma distinta.
-      - name: Usar clave de firma fija
+      # sobre la app anterior sin "conflicto con un paquete" por firma distinta.
+      # Se inyecta un signingConfig explícito en Gradle (no alcanza con copiar
+      # el debug keystore: en los runners Gradle usa otra ruta y regenera uno).
+      - name: Firmar con clave fija
         run: |
-          mkdir -p ~/.android
-          cp ci/debug.keystore ~/.android/debug.keystore
+          cp ci/debug.keystore android/app/karaoke.keystore
+          python3 ci/patch_signing.py
 
       - name: Inyectar permisos (micrófono + instalar APKs)
         run: |
