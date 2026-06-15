@@ -76,7 +76,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  if (_service.hasFile) _buildKaraokeToggle(theme),
+                  const SizedBox(height: 16),
                   if (_service.hasFile) _buildProgress(player),
                   if (_service.hasFile) _buildControls(player),
                   const Spacer(),
@@ -96,6 +98,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildKaraokeToggle(ThemeData theme) {
+    if (_service.processing) {
+      return Column(
+        children: [
+          const Text('Atenuando la voz…'),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: _service.processingProgress),
+          const SizedBox(height: 4),
+          Text('${(_service.processingProgress * 100).toStringAsFixed(0)} %'),
+        ],
+      );
+    }
+    return Card(
+      margin: EdgeInsets.zero,
+      child: SwitchListTile(
+        secondary: const Icon(Icons.mic_off),
+        title: const Text('Atenuar voz (karaoke)'),
+        subtitle: const Text('Baja la voz para cantar encima. Es instantáneo '
+            'pero imperfecto según la grabación.'),
+        value: _service.voiceAttenuated,
+        onChanged: (v) => _service.setVoiceAttenuated(v),
       ),
     );
   }
