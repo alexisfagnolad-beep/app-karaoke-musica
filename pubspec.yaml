@@ -32,10 +32,6 @@ dependencies:
   # Reproducción de audio local (play/pausa/seek + posición en vivo).
   just_audio: ^0.10.4
 
-  # Decodificación nativa de audio (MP3/WAV/FLAC, sin FFmpeg) para el filtro
-  # de atenuación de voz por cancelación de fase. Motor C (SoLoud/miniaudio).
-  flutter_soloud: ^3.0.0
-
   # --- Actualizador integrado (celular + PC) ---
   http: ^1.2.0                    # consultar la API de GitHub y descargar
   flutter_secure_storage: ^9.2.2  # guardar el token local de forma segura

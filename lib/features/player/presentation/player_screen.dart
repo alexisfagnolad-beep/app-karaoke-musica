@@ -104,13 +104,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildKaraokeToggle(ThemeData theme) {
     if (_service.processing) {
-      return Column(
+      return const Column(
         children: [
-          const Text('Atenuando la voz…'),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: _service.processingProgress),
-          const SizedBox(height: 4),
-          Text('${(_service.processingProgress * 100).toStringAsFixed(0)} %'),
+          Text('Atenuando la voz… (decodificando la canción)'),
+          SizedBox(height: 12),
+          LinearProgressIndicator(),
         ],
       );
     }

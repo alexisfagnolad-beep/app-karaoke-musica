@@ -46,6 +46,16 @@ jobs:
           cp ci/debug.keystore android/app/karaoke.keystore
           python3 ci/patch_signing.py
 
+      # Instala el decodificador de audio nativo (MediaCodec) reemplazando la
+      # MainActivity generada por flutter create.
+      - name: Instalar decodificador nativo (MainActivity)
+        run: |
+          DEST=$(find android/app/src/main -name MainActivity.kt | head -1)
+          if [ -z "$DEST" ]; then echo "No encontré MainActivity.kt"; exit 1; fi
+          echo "Reemplazando $DEST"
+          cp ci/MainActivity.kt "$DEST"
+          head -3 "$DEST"
+
       - name: Inyectar permisos (micrófono + instalar APKs)
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml

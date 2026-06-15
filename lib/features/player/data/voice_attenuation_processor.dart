@@ -1,99 +1,123 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter_soloud/flutter_soloud.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Atenúa la voz de una canción por cancelación de fase (técnica "center
-/// channel cancellation"): en una mezcla estéreo, la voz suele estar centrada
-/// (igual en L y R), así que `L - R` la cancela y deja el resto.
+/// Atenúa la voz de una canción por cancelación de fase ("center channel
+/// cancellation"): en una mezcla estéreo, la voz suele estar centrada (igual
+/// en L y R), así que `L - R` la cancela y deja el resto.
 ///
-/// Es instantáneo y liviano (corre en cualquier teléfono), pero imperfecto:
-/// baja bien la voz si está centrada, a medias en otras grabaciones. La
-/// separación de calidad (Demucs) queda para el motor de PC, como dice el
-/// README.
+/// Instantáneo y liviano, pero imperfecto: baja bien la voz si está centrada,
+/// a medias en otras grabaciones. La separación de calidad (Demucs) queda
+/// para el motor de PC, como dice el README.
 ///
-/// Decodifica con flutter_soloud (MP3/WAV/FLAC nativo, sin FFmpeg) y escribe
-/// un WAV mono con la mezcla atenuada, listo para reproducir.
+/// El audio se decodifica a PCM con el decodificador nativo del dispositivo
+/// (MediaCodec en Android, vía MethodChannel); la cancelación L−R se hace en
+/// Dart (lógica testeada).
 class VoiceAttenuationProcessor {
-  static const int sampleRate = 44100;
-  static const int channels = 2;
+  static const MethodChannel _channel = MethodChannel('karaoke/decoder');
 
   /// Procesa [inputPath] y devuelve la ruta del WAV con la voz atenuada.
-  /// [onProgress] reporta avance de 0 a 1.
   Future<String> process(
     String inputPath, {
     void Function(double progress)? onProgress,
   }) async {
-    final soloud = SoLoud.instance;
-    final createdHere = !soloud.isInitialized;
-    if (createdHere) {
-      await soloud.init(sampleRate: sampleRate, channels: Channels.stereo);
+    final dir = await getTemporaryDirectory();
+    final decodedPath = '${dir.path}/karaoke_decoded.wav';
+    final outputPath = '${dir.path}/karaoke_voz_atenuada.wav';
+
+    onProgress?.call(0.05);
+
+    // 1) Decodificación nativa a WAV PCM 16-bit.
+    final result = await _channel.invokeMethod<String>('decodeToWav', {
+      'input': inputPath,
+      'output': decodedPath,
+    });
+    if (result == null) {
+      throw Exception('La decodificación nativa no devolvió resultado.');
     }
 
-    AudioSource? source;
+    onProgress?.call(0.7);
+
+    // 2) Cancelación de fase L−R -> WAV mono.
+    karaokeMonoWav(File(decodedPath), File(outputPath));
+
+    // 3) Limpiamos el WAV intermedio (puede pesar bastante).
     try {
-      source = await soloud.loadFile(inputPath, mode: LoadMode.disk);
-      final totalSeconds = soloud.getLength(source).inMilliseconds / 1000.0;
-      if (totalSeconds <= 0) {
-        throw Exception('No se pudo leer la duración del audio.');
-      }
+      File(decodedPath).deleteSync();
+    } catch (_) {}
 
-      final dir = await getApplicationSupportDirectory();
-      final outFile = File('${dir.path}/karaoke_voz_atenuada.wav');
-      final raf = outFile.openSync(mode: FileMode.write);
-
-      // Reservamos los 44 bytes del header; se completan al final.
-      raf.writeFromSync(Uint8List(44));
-      var totalMonoSamples = 0;
-
-      const chunkSeconds = 30.0;
-      var t = 0.0;
-      while (t < totalSeconds) {
-        final end = math.min(t + chunkSeconds, totalSeconds);
-        final frames = ((end - t) * sampleRate).round();
-        if (frames <= 0) break;
-
-        // average:false => muestras por canal (intercaladas L,R,L,R…).
-        final samples = await soloud.readSamplesFromFile(
-          inputPath,
-          frames * channels,
-          startTime: t,
-          endTime: end,
-          average: false,
-        );
-
-        final out = BytesBuilder(copy: false);
-        for (var i = 0; i + 1 < samples.length; i += 2) {
-          var mono = samples[i] - samples[i + 1]; // cancela el centro
-          if (mono > 1.0) mono = 1.0;
-          if (mono < -1.0) mono = -1.0;
-          final v = (mono * 32767).round();
-          out.addByte(v & 0xFF);
-          out.addByte((v >> 8) & 0xFF);
-          totalMonoSamples++;
-        }
-        raf.writeFromSync(out.takeBytes());
-
-        t = end;
-        onProgress?.call((t / totalSeconds).clamp(0.0, 1.0));
-      }
-
-      raf.setPositionSync(0);
-      raf.writeFromSync(_wavHeader(dataBytes: totalMonoSamples * 2));
-      await raf.close();
-
-      return outFile.path;
-    } finally {
-      if (source != null) soloud.disposeSource(source);
-      // Liberamos el dispositivo de audio para no chocar con el reproductor.
-      if (createdHere) soloud.deinit();
-    }
+    onProgress?.call(1.0);
+    return outputPath;
   }
 
-  /// Header WAV PCM 16-bit mono a [sampleRate].
-  Uint8List _wavHeader({required int dataBytes}) {
+  /// Lee un WAV PCM 16-bit (mono o estéreo) y escribe un WAV mono con
+  /// `L - R` (en estéreo) para cancelar lo que está centrado. Función pura
+  /// (sin plugins): se testea en `flutter test`.
+  static void karaokeMonoWav(File input, File output) {
+    final bytes = input.readAsBytesSync();
+    final data = ByteData.sublistView(bytes);
+
+    var sampleRate = 44100;
+    var channels = 2;
+    var bits = 16;
+    var dataOffset = -1;
+    var dataLen = 0;
+
+    // Recorre los chunks RIFF buscando 'fmt ' y 'data'.
+    var pos = 12; // salta 'RIFF'<size>'WAVE'
+    while (pos + 8 <= bytes.length) {
+      final id = String.fromCharCodes(bytes.sublist(pos, pos + 4));
+      final size = data.getUint32(pos + 4, Endian.little);
+      final body = pos + 8;
+      if (id == 'fmt ') {
+        channels = data.getUint16(body + 2, Endian.little);
+        sampleRate = data.getUint32(body + 4, Endian.little);
+        bits = data.getUint16(body + 14, Endian.little);
+      } else if (id == 'data') {
+        dataOffset = body;
+        dataLen = size;
+        break;
+      }
+      pos = body + size + (size & 1); // chunks alineados a 2 bytes
+    }
+
+    if (dataOffset < 0 || bits != 16) {
+      throw Exception('WAV no soportado (bits=$bits).');
+    }
+
+    final end = (dataOffset + dataLen).clamp(0, bytes.length);
+    final out = BytesBuilder(copy: false);
+
+    if (channels >= 2) {
+      final frameBytes = channels * 2; // 2 bytes por muestra
+      for (var i = dataOffset; i + frameBytes <= end; i += frameBytes) {
+        final l = data.getInt16(i, Endian.little);
+        final r = data.getInt16(i + 2, Endian.little);
+        var mono = l - r;
+        if (mono > 32767) mono = 32767;
+        if (mono < -32768) mono = -32768;
+        out.addByte(mono & 0xFF);
+        out.addByte((mono >> 8) & 0xFF);
+      }
+    } else {
+      // Mono: no hay canales para cancelar, se copia tal cual.
+      for (var i = dataOffset; i + 2 <= end; i += 2) {
+        out.addByte(bytes[i]);
+        out.addByte(bytes[i + 1]);
+      }
+    }
+
+    final pcm = out.takeBytes();
+    final sink = output.openSync(mode: FileMode.write);
+    sink.writeFromSync(_wavHeader(dataBytes: pcm.length, sampleRate: sampleRate));
+    sink.writeFromSync(pcm);
+    sink.closeSync();
+  }
+
+  /// Header WAV PCM 16-bit mono.
+  static Uint8List _wavHeader({required int dataBytes, required int sampleRate}) {
     const monoChannels = 1;
     const bitsPerSample = 16;
     final byteRate = sampleRate * monoChannels * bitsPerSample ~/ 8;
@@ -117,8 +141,8 @@ class VoiceAttenuationProcessor {
     u32(36 + dataBytes);
     str('WAVE');
     str('fmt ');
-    u32(16); // tamaño del bloque fmt (PCM)
-    u16(1); // formato PCM
+    u32(16);
+    u16(1); // PCM
     u16(monoChannels);
     u32(sampleRate);
     u32(byteRate);
