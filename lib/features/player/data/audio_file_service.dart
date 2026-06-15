@@ -18,11 +18,12 @@ class AudioFileService extends ChangeNotifier {
 
   String? _fileName;
   String? _originalPath;
+  String? _decodedPath; // WAV decodificado (cacheado para reprocesar rápido)
   String? _processedPath;
 
   bool _voiceAttenuated = false;
   bool _processing = false;
-  double _processingProgress = 0;
+  double _strength = 0.9; // intensidad de la atenuación (0..1)
   String? _error;
 
   /// Nombre del archivo cargado, o `null` si todavía no se abrió ninguno.
@@ -37,8 +38,8 @@ class AudioFileService extends ChangeNotifier {
   /// true mientras se procesa la atenuación (la primera vez).
   bool get processing => _processing;
 
-  /// Avance del procesamiento, de 0 a 1.
-  double get processingProgress => _processingProgress;
+  /// Intensidad actual de la atenuación (0..1).
+  double get strength => _strength;
 
   /// Mensaje de error legible, o `null` si todo va bien.
   String? get error => _error;
@@ -58,6 +59,7 @@ class AudioFileService extends ChangeNotifier {
 
       _fileName = result!.files.single.name;
       _originalPath = path;
+      _decodedPath = null;
       _processedPath = null;
       _voiceAttenuated = false;
       await player.setAudioSource(AudioSource.uri(Uri.file(path)));
@@ -81,19 +83,12 @@ class AudioFileService extends ChangeNotifier {
     try {
       String target;
       if (value) {
-        if (_processedPath == null) {
-          _processing = true;
-          _processingProgress = 0;
-          notifyListeners();
-          _processedPath = await _processor.process(
-            original,
-            onProgress: (p) {
-              _processingProgress = p;
-              notifyListeners();
-            },
-          );
-          _processing = false;
-        }
+        _processing = true;
+        notifyListeners();
+        // Decodificamos una sola vez y cacheamos el WAV.
+        _decodedPath ??= await _processor.decode(original);
+        _processedPath = await _processor.attenuate(_decodedPath!, _strength);
+        _processing = false;
         target = _processedPath!;
       } else {
         target = original;
@@ -111,6 +106,33 @@ class AudioFileService extends ChangeNotifier {
       _processing = false;
       _voiceAttenuated = false;
       _error = 'No se pudo atenuar la voz: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Cambia la intensidad de la atenuación. Si está activada, reprocesa
+  /// (rápido, sin re-decodificar) y recarga conservando la posición.
+  Future<void> setStrength(double value) async {
+    _strength = value.clamp(0.0, 1.0);
+    notifyListeners();
+    if (!_voiceAttenuated || _processing || _decodedPath == null) return;
+
+    final wasPlaying = player.playing;
+    final position = player.position;
+    try {
+      _processing = true;
+      notifyListeners();
+      _processedPath = await _processor.attenuate(_decodedPath!, _strength);
+      _processing = false;
+      notifyListeners();
+      await player.setAudioSource(
+        AudioSource.uri(Uri.file(_processedPath!)),
+        initialPosition: position,
+      );
+      if (wasPlaying) player.play();
+    } catch (e) {
+      _processing = false;
+      _error = 'No se pudo aplicar la intensidad: $e';
       notifyListeners();
     }
   }

@@ -114,13 +114,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
     return Card(
       margin: EdgeInsets.zero,
-      child: SwitchListTile(
-        secondary: const Icon(Icons.mic_off),
-        title: const Text('Atenuar voz (karaoke)'),
-        subtitle: const Text('Baja la voz para cantar encima. Es instantáneo '
-            'pero imperfecto según la grabación.'),
-        value: _service.voiceAttenuated,
-        onChanged: (v) => _service.setVoiceAttenuated(v),
+      child: Column(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.mic_off),
+            title: const Text('Atenuar voz (karaoke)'),
+            subtitle: const Text('Baja la voz para cantar encima. Instantáneo '
+                'pero imperfecto según la grabación.'),
+            value: _service.voiceAttenuated,
+            onChanged: (v) => _service.setVoiceAttenuated(v),
+          ),
+          if (_service.voiceAttenuated)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  const Text('Intensidad'),
+                  Expanded(
+                    child: Slider(
+                      value: _service.strength,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 10,
+                      label: '${(_service.strength * 100).round()}%',
+                      onChanged: (v) => _service.setStrength(v),
+                    ),
+                  ),
+                  Text('${(_service.strength * 100).round()}%'),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
