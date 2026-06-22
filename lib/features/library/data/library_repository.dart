@@ -104,6 +104,16 @@ class LibraryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateSong(Song updated) async {
+    final i = songs.indexWhere((s) => s.id == updated.id);
+    if (i < 0) return;
+    songs[i] = updated;
+    final g = updated.genre;
+    if (g != null && g.isNotEmpty && !genres.contains(g)) genres.add(g);
+    await _save();
+    notifyListeners();
+  }
+
   Future<void> deleteSong(Song song) async {
     try {
       final f = File(song.path);

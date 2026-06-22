@@ -24,6 +24,21 @@ class Song {
     required this.addedAt,
   });
 
+  Song copyWith({
+    String? title,
+    String? genre,
+    bool clearGenre = false,
+    List<String>? instruments,
+  }) =>
+      Song(
+        id: id,
+        title: title ?? this.title,
+        path: path,
+        genre: clearGenre ? null : (genre ?? this.genre),
+        instruments: instruments ?? this.instruments,
+        addedAt: addedAt,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,

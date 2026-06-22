@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -24,6 +26,7 @@ class AudioFileService extends ChangeNotifier {
   bool _voiceAttenuated = false;
   bool _processing = false;
   double _strength = 0.9; // intensidad de la atenuación (0..1)
+  int _semitones = 0; // cambio de tono (sin alterar la velocidad)
   String? _error;
 
   /// Nombre del archivo cargado, o `null` si todavía no se abrió ninguno.
@@ -40,6 +43,26 @@ class AudioFileService extends ChangeNotifier {
 
   /// Intensidad actual de la atenuación (0..1).
   double get strength => _strength;
+
+  /// Cambio de tono en semitonos (negativo = más grave, positivo = más agudo).
+  int get semitones => _semitones;
+
+  /// Aplica el tono actual al reproductor (factor = 2^(semitonos/12)).
+  /// Cambia la altura SIN alterar la velocidad. Soportado en Android.
+  Future<void> _applyPitch() async {
+    try {
+      await player.setPitch(math.pow(2, _semitones / 12).toDouble());
+    } catch (_) {
+      // Si la plataforma no soporta pitch, lo ignoramos.
+    }
+  }
+
+  /// Cambia el tono en semitonos (rango -6..+6) sin cambiar la velocidad.
+  Future<void> setSemitones(int value) async {
+    _semitones = value.clamp(-6, 6);
+    notifyListeners();
+    await _applyPitch();
+  }
 
   /// Mensaje de error legible, o `null` si todo va bien.
   String? get error => _error;
@@ -63,6 +86,7 @@ class AudioFileService extends ChangeNotifier {
       _processedPath = null;
       _voiceAttenuated = false;
       await player.setAudioSource(AudioSource.uri(Uri.file(path)));
+      await _applyPitch();
       notifyListeners();
     } catch (e) {
       _error = 'No se pudo abrir el archivo: $e';
@@ -80,6 +104,7 @@ class AudioFileService extends ChangeNotifier {
     _voiceAttenuated = false;
     try {
       await player.setAudioSource(AudioSource.uri(Uri.file(path)));
+      await _applyPitch();
     } catch (e) {
       _error = 'No se pudo abrir la canción: $e';
     }
@@ -117,6 +142,7 @@ class AudioFileService extends ChangeNotifier {
         AudioSource.uri(Uri.file(target)),
         initialPosition: position,
       );
+      await _applyPitch();
       if (wasPlaying) player.play();
     } catch (e) {
       _processing = false;
@@ -145,6 +171,7 @@ class AudioFileService extends ChangeNotifier {
         AudioSource.uri(Uri.file(_processedPath!)),
         initialPosition: position,
       );
+      await _applyPitch();
       if (wasPlaying) player.play();
     } catch (e) {
       _processing = false;

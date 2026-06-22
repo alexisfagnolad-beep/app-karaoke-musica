@@ -15,8 +15,11 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   final LibraryRepository _repo = LibraryRepository();
+  final TextEditingController _searchCtrl = TextEditingController();
   String? _genre;
   String? _instrument;
+  String _search = '';
+  bool _sortByTitle = false; // false = más recientes primero
 
   @override
   void initState() {
@@ -26,8 +29,40 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _repo.dispose();
     super.dispose();
+  }
+
+  List<Song> _visibleSongs() {
+    var list = LibraryRepository.filter(
+      _repo.songs,
+      genre: _genre,
+      instrument: _instrument,
+    );
+    if (_search.isNotEmpty) {
+      final q = _search.toLowerCase();
+      list = list.where((s) => s.title.toLowerCase().contains(q)).toList();
+    }
+    list.sort((a, b) => _sortByTitle
+        ? a.title.toLowerCase().compareTo(b.title.toLowerCase())
+        : b.addedAt.compareTo(a.addedAt));
+    return list;
+  }
+
+  Future<void> _editSong(Song song) async {
+    final data = await showModalBottomSheet<_NewSongData>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AddSongSheet(repo: _repo, existing: song),
+    );
+    if (data == null) return;
+    await _repo.updateSong(song.copyWith(
+      title: data.title,
+      genre: data.genre,
+      clearGenre: data.genre == null,
+      instruments: data.instruments,
+    ));
   }
 
   Future<void> _addSong() async {
@@ -61,7 +96,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Biblioteca'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Biblioteca'),
+        centerTitle: true,
+        actions: [
+          PopupMenuButton<bool>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Ordenar',
+            onSelected: (v) => setState(() => _sortByTitle = v),
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem(
+                value: false,
+                checked: !_sortByTitle,
+                child: const Text('Más recientes'),
+              ),
+              CheckedPopupMenuItem(
+                value: true,
+                checked: _sortByTitle,
+                child: const Text('A–Z (título)'),
+              ),
+            ],
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addSong,
         icon: const Icon(Icons.add),
@@ -74,14 +131,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
             if (!_repo.loaded) {
               return const Center(child: CircularProgressIndicator());
             }
-            final songs = LibraryRepository.filter(
-              _repo.songs,
-              genre: _genre,
-              instrument: _instrument,
-            );
+            final songs = _visibleSongs();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _search = v),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: 'Buscar por nombre',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _search.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _search = '');
+                              },
+                            ),
+                    ),
+                  ),
+                ),
                 _filtersBar(),
                 const Divider(height: 1),
                 Expanded(
@@ -156,9 +231,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
       onTap: () => _openSong(song),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: () => _confirmDelete(song),
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) {
+          if (v == 'edit') _editSong(song);
+          if (v == 'delete') _confirmDelete(song);
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'edit', child: Text('Editar etiquetas')),
+          PopupMenuItem(value: 'delete', child: Text('Quitar')),
+        ],
       ),
     );
   }
@@ -215,20 +296,29 @@ class _NewSongData {
 
 /// Hoja inferior para cargar título, género e instrumentos de una canción.
 class _AddSongSheet extends StatefulWidget {
-  const _AddSongSheet({required this.repo, required this.defaultTitle});
+  const _AddSongSheet({
+    required this.repo,
+    this.defaultTitle = '',
+    this.existing,
+  });
 
   final LibraryRepository repo;
   final String defaultTitle;
+
+  /// Si se pasa, la hoja edita esta canción (prefill).
+  final Song? existing;
 
   @override
   State<_AddSongSheet> createState() => _AddSongSheetState();
 }
 
 class _AddSongSheetState extends State<_AddSongSheet> {
-  late final TextEditingController _title =
-      TextEditingController(text: widget.defaultTitle);
-  String? _genre;
-  final Set<String> _instruments = {};
+  late final TextEditingController _title = TextEditingController(
+      text: widget.existing?.title ?? widget.defaultTitle);
+  late String? _genre = widget.existing?.genre;
+  late final Set<String> _instruments = {...?widget.existing?.instruments};
+
+  bool get _isEditing => widget.existing != null;
 
   @override
   void dispose() {
@@ -277,7 +367,7 @@ class _AddSongSheetState extends State<_AddSongSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Agregar canción',
+            Text(_isEditing ? 'Editar canción' : 'Agregar canción',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             TextField(
@@ -297,7 +387,9 @@ class _AddSongSheetState extends State<_AddSongSheet> {
                   ChoiceChip(
                     label: Text(g),
                     selected: _genre == g,
-                    onSelected: (_) => setState(() => _genre = g),
+                    // Tocar el seleccionado lo deselecciona (sin género).
+                    onSelected: (_) =>
+                        setState(() => _genre = _genre == g ? null : g),
                   ),
                 ActionChip(
                   avatar: const Icon(Icons.add, size: 18),
@@ -331,15 +423,22 @@ class _AddSongSheetState extends State<_AddSongSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () {
-                  final title = _title.text.trim().isEmpty
-                      ? widget.defaultTitle
-                      : _title.text.trim();
+                  var title = _title.text.trim();
+                  if (title.isEmpty) {
+                    title = widget.existing?.title.isNotEmpty == true
+                        ? widget.existing!.title
+                        : (widget.defaultTitle.isEmpty
+                            ? 'Canción'
+                            : widget.defaultTitle);
+                  }
                   Navigator.pop(
                     context,
                     _NewSongData(title, _genre, _instruments.toList()),
                   );
                 },
-                child: const Text('Guardar en la biblioteca'),
+                child: Text(_isEditing
+                    ? 'Guardar cambios'
+                    : 'Guardar en la biblioteca'),
               ),
             ),
           ],

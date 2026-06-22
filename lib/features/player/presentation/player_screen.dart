@@ -54,14 +54,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: AnimatedBuilder(
           animation: _service,
           builder: (context, _) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Column(
                 children: [
                   if (_service.error != null)
                     Container(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(top: 16),
+                      margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.errorContainer,
@@ -74,7 +74,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         ),
                       ),
                     ),
-                  const Spacer(),
+                  const SizedBox(height: 8),
                   Icon(
                     Icons.music_note,
                     size: 96,
@@ -91,10 +91,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                   const SizedBox(height: 24),
                   if (_service.hasFile) _buildKaraokeToggle(theme),
+                  const SizedBox(height: 12),
+                  if (_service.hasFile) _buildPitchControl(theme),
                   const SizedBox(height: 16),
                   if (_service.hasFile) _buildProgress(player),
                   if (_service.hasFile) _buildControls(player),
-                  const Spacer(),
+                  const SizedBox(height: 24),
                   OutlinedButton.icon(
                     onPressed: _service.pickAndLoad,
                     icon: const Icon(Icons.folder_open),
@@ -160,6 +162,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPitchControl(ThemeData theme) {
+    final n = _service.semitones;
+    final label = n == 0 ? '0' : (n > 0 ? '+$n' : '$n');
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.music_note),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Tono (sin cambiar la velocidad)'),
+            ),
+            IconButton.outlined(
+              onPressed: n > -6 ? () => _service.setSemitones(n - 1) : null,
+              icon: const Icon(Icons.remove),
+            ),
+            SizedBox(
+              width: 44,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+            IconButton.outlined(
+              onPressed: n < 6 ? () => _service.setSemitones(n + 1) : null,
+              icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
       ),
     );
   }
