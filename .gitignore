@@ -1,3 +1,9 @@
+# Motor de PC (Python)
+pc_engine/.venv/
+pc_engine/proyectos/
+__pycache__/
+*.pyc
+
 # Archivos generados por Flutter / Dart
 .dart_tool/
 .flutter-plugins
