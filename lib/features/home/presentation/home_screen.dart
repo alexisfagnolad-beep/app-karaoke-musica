@@ -67,62 +67,67 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Karaoke Música'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Actualizaciones',
-            icon: const Icon(Icons.system_update),
-            onPressed: _openUpdates,
-          ),
-        ],
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 12),
-              _MenuCard(
-                icon: Icons.mic,
-                title: 'Afinación en vivo',
-                subtitle: 'Cantá y mirá tu nota y los cents en tiempo real.',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const LivePitchScreen(),
-                  ),
+              _Header(onUpdates: _openUpdates),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  children: [
+                    _MenuCard(
+                      icon: Icons.mic,
+                      color: const Color(0xFF7C4DFF),
+                      title: 'Afinación en vivo',
+                      subtitle: 'Cantá y mirá tu nota y los cents en tiempo real.',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LivePitchScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.library_music,
+                      color: const Color(0xFF1DB6A2),
+                      title: 'Biblioteca',
+                      subtitle: 'Tus canciones por género e instrumento.',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LibraryScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.music_note,
+                      color: const Color(0xFFFF8A3D),
+                      title: 'Reproducir un MP3',
+                      subtitle: 'Abrí una canción propia desde tu celular.',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PlayerScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.system_update,
+                      color: const Color(0xFF4D9BFF),
+                      title: 'Actualizaciones',
+                      subtitle: 'Buscar e instalar la última versión de la app.',
+                      onTap: _openUpdates,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              _MenuCard(
-                icon: Icons.library_music,
-                title: 'Biblioteca',
-                subtitle: 'Tus canciones por género e instrumento.',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const LibraryScreen(),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Text(
+                  'Modo Karaoke Rápido — funciona sin internet',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _MenuCard(
-                icon: Icons.music_note,
-                title: 'Reproducir un MP3',
-                subtitle: 'Abrí una canción propia desde tu celular.',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PlayerScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _MenuCard(
-                icon: Icons.system_update,
-                title: 'Actualizaciones',
-                subtitle: 'Buscar e instalar la última versión de la app.',
-                onTap: _openUpdates,
               ),
             ],
           ),
@@ -132,15 +137,81 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// Encabezado con degradé, nombre y subtítulo de la app.
+class _Header extends StatelessWidget {
+  const _Header({required this.onUpdates});
+
+  final VoidCallback onUpdates;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 12, 28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF7C4DFF), Color(0xFF4D9BFF)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.graphic_eq, color: Colors.white, size: 32),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  'Karaoke Música',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Cantá, practicá y afiná',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Actualizaciones',
+            icon: const Icon(Icons.system_update, color: Colors.white),
+            onPressed: onUpdates,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MenuCard extends StatelessWidget {
   const _MenuCard({
     required this.icon,
+    required this.color,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
+  final Color color;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -149,24 +220,32 @@ class _MenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(icon, size: 40, color: theme.colorScheme.primary),
-              const SizedBox(width: 20),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, size: 28, color: color),
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: theme.textTheme.titleLarge),
+                    Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
@@ -174,7 +253,10 @@ class _MenuCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
             ],
           ),
         ),
