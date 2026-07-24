@@ -46,10 +46,21 @@ meta.json          ← datos del proyecto
 Escuchá `instrumental.wav`: la voz tiene que estar **mucho** más limpia que con
 el filtro del celular.
 
+## Paso 2: melodía de referencia (para el puntaje)
+
+Una vez que tenés `vocals.wav`, extraé la afinación de la voz a lo largo del
+tiempo (base del sistema de puntaje del celular):
+
+```bat
+python melody.py "proyectos\cancion"
+```
+
+Genera `proyectos\cancion\melody.json` con la nota objetivo cuadro a cuadro
+(tiempo, frecuencia, nota, cents). Solo usa numpy + soundfile (ya instalados),
+no baja modelos.
+
 ## Qué sigue (próximos pasos del motor)
 
-- **Melodía de referencia**: extraer la afinación de `vocals.wav` a lo largo del
-  tiempo → base del sistema de puntaje.
 - **Formato de proyecto** portable para pasar al celular.
 - **Cola en lote**: procesar varias canciones automáticamente.
 - **App de escritorio** con interfaz para todo esto.
