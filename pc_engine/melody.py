@@ -123,7 +123,7 @@ def main() -> int:
         print("       ¿Corriste antes separate.py para generar vocals.wav?", file=sys.stderr)
         return 1
 
-    print(f"Analizando la voz: {vocals.name} …")
+    print(f"Analizando la voz: {vocals.name} ...")
     melody = extract_melody(vocals, fps=args.fps)
     out_json.write_text(json.dumps(melody, ensure_ascii=False), encoding="utf-8")
 
@@ -139,7 +139,7 @@ def main() -> int:
     voiced = sum(1 for f in melody["frames"] if f["voiced"])
     total = melody["frameCount"]
     pct = (100 * voiced / total) if total else 0
-    print(f"✅ Melodía extraída: {total} cuadros, {voiced} con voz ({pct:.0f}%).")
+    print(f"OK: Melodía extraída: {total} cuadros, {voiced} con voz ({pct:.0f}%).")
     print(f"   Archivo: {out_json}")
     return 0
 

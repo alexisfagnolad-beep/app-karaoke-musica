@@ -36,7 +36,7 @@ def run_demucs(input_path: Path, work_dir: Path, model: str) -> None:
         str(work_dir),
         str(input_path),
     ]
-    print("→ Ejecutando Demucs (la 1ª vez baja el modelo, puede tardar):")
+    print("-> Ejecutando Demucs (la 1ª vez baja el modelo, puede tardar):")
     print("   " + " ".join(cmd))
     subprocess.run(cmd, check=True)
 
@@ -116,7 +116,7 @@ def main() -> int:
     if not args.keep_temp:
         shutil.rmtree(work_dir, ignore_errors=True)
 
-    print("\n✅ Listo.")
+    print("\nOK: Listo.")
     print(f"   Instrumental: {project_dir / 'instrumental.wav'}")
     print(f"   Voz:          {project_dir / 'vocals.wav'}")
     print(f"   Datos:        {project_dir / 'meta.json'}")

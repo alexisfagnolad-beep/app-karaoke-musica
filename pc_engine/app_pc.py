@@ -93,9 +93,15 @@ class KaraokeApp:
         threading.Thread(target=self._run, args=(path,), daemon=True).start()
 
     def _stream(self, cmd) -> int:
+        # Forzamos UTF-8 en el proceso hijo para evitar UnicodeEncodeError
+        # en consolas en español (cp1252) al imprimir símbolos.
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", cwd=str(HERE),
+            env=env,
         )
         assert proc.stdout is not None
         for line in proc.stdout:

@@ -38,15 +38,15 @@ def main() -> int:
     r = subprocess.run([py, str(here / "separate.py"), str(input_path),
                         "-o", str(projects_dir)])
     if r.returncode != 0:
-        print("\n⚠️  La separación no terminó. Volvé a arrastrar la canción.")
+        print("\n[!]  La separación no terminó. Volvé a arrastrar la canción.")
         return 1
 
     print("\n[2/2] Extrayendo melodía de referencia...")
     r = subprocess.run([py, str(here / "melody.py"), str(project)])
     if r.returncode != 0:
-        print("\n⚠️  No se pudo extraer la melodía (pero el instrumental ya está).")
+        print("\n[!]  No se pudo extraer la melodía (pero el instrumental ya está).")
 
-    print("\n✅ Listo. Abriendo la carpeta del resultado...")
+    print("\nOK: Listo. Abriendo la carpeta del resultado...")
     print(f"   {project}")
     try:
         os.startfile(str(project))  # abre la carpeta en Windows
