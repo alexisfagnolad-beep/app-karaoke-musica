@@ -1,6 +1,7 @@
 # Motor de PC (Python)
 pc_engine/.venv/
 pc_engine/proyectos/
+pc_engine/token.txt
 __pycache__/
 *.pyc
 

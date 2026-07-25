@@ -15,10 +15,13 @@ import threading
 from pathlib import Path
 
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
+
+import updater
 
 HERE = Path(__file__).resolve().parent
 PY = sys.executable  # Python del entorno (.venv), con Demucs instalado
+TOKEN_FILE = HERE / "token.txt"
 
 
 class KaraokeApp:
@@ -57,7 +60,14 @@ class KaraokeApp:
                                   font=("Segoe UI", 11), state="disabled",
                                   relief="flat", padx=10, pady=6, cursor="hand2",
                                   command=self.open_folder)
-        self.open_btn.pack(pady=(0, 14))
+        self.open_btn.pack(pady=(0, 6))
+
+        self.update_btn = tk.Button(root, text="🔄  Actualizar app",
+                                    font=("Segoe UI", 9), fg="#B9B4C7",
+                                    bg="#12101A", activebackground="#12101A",
+                                    activeforeground="white", relief="flat",
+                                    cursor="hand2", command=self.update_app)
+        self.update_btn.pack(pady=(0, 12))
 
         self.root.after(100, self._drain)
 
@@ -146,6 +156,49 @@ class KaraokeApp:
                 os.startfile(str(self.project))  # type: ignore[attr-defined]
             except Exception:  # noqa: BLE001
                 pass
+
+    # ---- auto-actualización ----
+    def _get_token(self) -> str:
+        if TOKEN_FILE.exists():
+            saved = TOKEN_FILE.read_text(encoding="utf-8").strip()
+            if saved:
+                return saved
+        token = simpledialog.askstring(
+            "Token de GitHub",
+            "Pegá tu token de GitHub (el mismo que usás en el celular).\n"
+            "Se guarda solo en esta PC (token.txt), no se comparte.",
+            show="*", parent=self.root,
+        )
+        if token:
+            token = token.strip()
+            try:
+                TOKEN_FILE.write_text(token, encoding="utf-8")
+            except Exception:  # noqa: BLE001
+                pass
+        return token or ""
+
+    def update_app(self):
+        token = self._get_token()
+        if not token:
+            return
+        self.update_btn.configure(state="disabled")
+        self.logln("Buscando actualización de la app...")
+
+        def work():
+            ok, msg = updater.download_and_apply(token, HERE)
+
+            def done():
+                self.update_btn.configure(state="normal")
+                self.logln(msg)
+                if ok:
+                    messagebox.showinfo("Actualizar",
+                                        msg + "\n\nCerrá y volvé a abrir la app.")
+                else:
+                    messagebox.showwarning("Actualizar", msg)
+
+            self.root.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
 
 
 def main():
