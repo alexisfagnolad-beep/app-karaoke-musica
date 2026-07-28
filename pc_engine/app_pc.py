@@ -178,14 +178,10 @@ class KaraokeApp:
         return token or ""
 
     def update_app(self):
-        # Repo público: no hace falta token. Si existe token.txt (repo privado),
-        # se usa igual.
-        token = ""
-        try:
-            if TOKEN_FILE.exists():
-                token = TOKEN_FILE.read_text(encoding="utf-8").strip()
-        except Exception:  # noqa: BLE001
-            token = ""
+        # Repo privado: usa el token guardado, o lo pide la 1ª vez.
+        token = self._get_token()
+        if not token:
+            return
         self.update_btn.configure(state="disabled")
         self.logln("Buscando actualización de la app...")
 
