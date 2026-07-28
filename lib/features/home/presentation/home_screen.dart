@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../karaoke/presentation/practice_setup_screen.dart';
 import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
@@ -96,6 +97,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       subtitle: 'Tus canciones por género e instrumento.',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const LibraryScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.stars,
+                      color: const Color(0xFFE0457B),
+                      title: 'Práctica con puntaje',
+                      subtitle: 'Cantá o tocá sobre un proyecto de la PC y puntuá.',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const PracticeSetupScreen()),
                       ),
                     ),
                     const SizedBox(height: 14),
