@@ -20,8 +20,18 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 import updater
 
 HERE = Path(__file__).resolve().parent
-PY = sys.executable  # Python del entorno (.venv), con Demucs instalado
 TOKEN_FILE = HERE / "token.txt"
+
+
+def _console_python() -> str:
+    """Devuelve el python.exe (con consola). La app corre con pythonw.exe,
+    pero Demucs/torch fallan bajo pythonw, así que los subprocesos deben usar
+    python.exe."""
+    candidate = Path(sys.executable).with_name("python.exe")
+    return str(candidate) if candidate.exists() else sys.executable
+
+
+PY = _console_python()
 
 
 class KaraokeApp:

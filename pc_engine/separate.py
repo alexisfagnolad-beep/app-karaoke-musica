@@ -23,10 +23,16 @@ import sys
 from pathlib import Path
 
 
+def _console_python() -> str:
+    """python.exe (con consola). Demucs/torch fallan bajo pythonw.exe."""
+    candidate = Path(sys.executable).with_name("python.exe")
+    return str(candidate) if candidate.exists() else sys.executable
+
+
 def run_demucs(input_path: Path, work_dir: Path, model: str) -> None:
     """Ejecuta Demucs en modo dos-stems (voz / no-voz)."""
     cmd = [
-        sys.executable,
+        _console_python(),
         "-m",
         "demucs",
         "--two-stems=vocals",
