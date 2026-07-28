@@ -53,20 +53,21 @@ def _apply_zip(data: bytes, dest_dir: Path) -> int:
 
 
 def download_and_apply(token: str, dest_dir: Path):
-    """Descarga y aplica la última versión. Devuelve (ok: bool, mensaje: str)."""
-    token = (token or "").strip()
-    if not token:
-        return False, "Falta el token de GitHub."
+    """Descarga y aplica la última versión. Devuelve (ok: bool, mensaje: str).
 
-    request = urllib.request.Request(
-        zipball_url(),
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "karaoke-pc-updater",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
+    Para repo público no hace falta token. Para repo privado, pasá un token
+    de GitHub con permiso de lectura.
+    """
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "karaoke-pc-updater",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = (token or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    request = urllib.request.Request(zipball_url(), headers=headers)
     try:
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(request, timeout=90, context=ctx) as resp:
