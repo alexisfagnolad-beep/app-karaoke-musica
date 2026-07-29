@@ -31,9 +31,8 @@ class _UpdateScreenState extends State<UpdateScreen> {
     if (_ownsService) {
       await _service.init();
     }
-    if (_service.hasToken) {
-      await _service.checkForUpdate();
-    }
+    // Repo público: se puede chequear sin token.
+    await _service.checkForUpdate();
   }
 
   @override
@@ -64,8 +63,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (!_service.hasToken) _buildTokenSetup(theme),
-                if (_service.hasToken) ..._buildUpdateArea(theme),
+                ..._buildUpdateArea(theme),
               ],
             );
           },

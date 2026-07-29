@@ -32,7 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Protegido: en entornos sin plugins (tests) no debe romper la pantalla.
     try {
       await _updateService.init();
-      if (!_updateService.hasToken) return;
       await _updateService.checkForUpdate();
       if (!mounted) return;
       if (_updateService.status == UpdateStatus.available) {

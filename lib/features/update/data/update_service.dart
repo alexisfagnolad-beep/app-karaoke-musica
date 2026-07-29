@@ -72,21 +72,22 @@ class UpdateService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Map<String, String> _ghHeaders({required bool binary}) => {
-        'Accept':
-            binary ? 'application/octet-stream' : 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        // GitHub rechaza con 403 las peticiones sin User-Agent.
-        'User-Agent': 'karaoke-musica-app',
-      };
+  Map<String, String> _ghHeaders({required bool binary, String token = ''}) {
+    final headers = {
+      'Accept':
+          binary ? 'application/octet-stream' : 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      // GitHub rechaza con 403 las peticiones sin User-Agent.
+      'User-Agent': 'karaoke-musica-app',
+    };
+    // Repo público: sin token funciona. Con token (privado) se agrega.
+    if (token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+    return headers;
+  }
 
   /// Busca si hay una versión más nueva en la Release.
   Future<void> checkForUpdate() async {
-    final token = await _readToken();
-    if (token == null || token.isEmpty) {
-      _set(UpdateStatus.needsToken, 'Falta el token de GitHub.');
-      return;
-    }
+    final token = (await _readToken()) ?? '';
 
     _set(UpdateStatus.checking, 'Buscando actualización…');
     try {
@@ -95,7 +96,7 @@ class UpdateService extends ChangeNotifier {
       );
       final relRes = await http.get(
         relUri,
-        headers: {..._ghHeaders(binary: false), 'Authorization': 'Bearer $token'},
+        headers: _ghHeaders(binary: false, token: token),
       );
       if (relRes.statusCode == 401 || relRes.statusCode == 403) {
         _set(UpdateStatus.error,
@@ -151,9 +152,9 @@ class UpdateService extends ChangeNotifier {
 
   /// Descarga el APK/instalador y lo abre para instalar.
   Future<void> downloadAndInstall() async {
-    final token = await _readToken();
+    final token = (await _readToken()) ?? '';
     final assetUrl = _apkAssetUrl;
-    if (token == null || assetUrl == null) {
+    if (assetUrl == null) {
       _set(UpdateStatus.error, 'Primero buscá una actualización.');
       return;
     }
@@ -217,10 +218,7 @@ class UpdateService extends ChangeNotifier {
     final client = http.Client();
     final request = http.Request('GET', Uri.parse(assetApiUrl))
       ..followRedirects = false
-      ..headers.addAll({
-        ..._ghHeaders(binary: true),
-        'Authorization': 'Bearer $token',
-      });
+      ..headers.addAll(_ghHeaders(binary: true, token: token));
 
     var response = await client.send(request);
 
