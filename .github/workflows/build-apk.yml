@@ -80,13 +80,6 @@ jobs:
         # necesario para que las actualizaciones se reconozcan como tales.
         run: flutter build apk --debug --build-number=${{ github.run_number }}
 
-      - name: Subir APK como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: karaoke-musica-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-
       - name: Renombrar APK y generar version.json
         run: |
           cp build/app/outputs/flutter-apk/app-debug.apk karaoke-musica-debug.apk
