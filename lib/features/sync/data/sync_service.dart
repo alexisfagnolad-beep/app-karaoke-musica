@@ -199,6 +199,20 @@ class SyncService extends ChangeNotifier {
     }
   }
 
+  /// Sincronización automática: busca proyectos nuevos y los baja e importa
+  /// a la Biblioteca. Devuelve cuántas canciones nuevas se agregaron.
+  Future<int> autoDownloadNew() async {
+    await refresh();
+    if (status == SyncStatus.error) return 0;
+    final pending = projects.where((p) => !p.imported).toList();
+    var added = 0;
+    for (final p in pending) {
+      await download(p);
+      if (p.imported) added++;
+    }
+    return added;
+  }
+
   Future<List<int>> _downloadAsset(String assetApiUrl) async {
     final res = await _openAssetStream(assetApiUrl);
     return res.stream.toBytes();

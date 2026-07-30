@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../karaoke/presentation/practice_setup_screen.dart';
+import '../../library/data/library_repository.dart';
 import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../sync/data/sync_service.dart';
 import '../../sync/presentation/sync_screen.dart';
 import '../../update/data/update_service.dart';
 import '../../update/presentation/update_screen.dart';
@@ -20,11 +22,43 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final UpdateService _updateService = UpdateService();
+  final LibraryRepository _libraryRepo = LibraryRepository();
+  late final SyncService _syncService = SyncService(_libraryRepo);
 
   @override
   void initState() {
     super.initState();
     _checkUpdatesOnStart();
+    _autoSyncOnStart();
+  }
+
+  /// Sincronización automática al abrir: baja e importa a la Biblioteca las
+  /// canciones nuevas que se publicaron desde la PC. Así "enviar al celular"
+  /// se siente automático: aparecen solas la próxima vez que abrís la app.
+  Future<void> _autoSyncOnStart() async {
+    try {
+      await _libraryRepo.load();
+      final added = await _syncService.autoDownloadNew();
+      if (!mounted || added <= 0) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            added == 1
+                ? 'Se agregó 1 canción nueva desde la PC.'
+                : 'Se agregaron $added canciones nuevas desde la PC.',
+          ),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Ver',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const LibraryScreen())),
+          ),
+        ),
+      );
+    } catch (_) {
+      // Silencioso: si no hay internet o falla, no rompe el inicio.
+    }
   }
 
   /// Chequeo silencioso al arrancar: si hay token y una versión nueva,
@@ -61,6 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _updateService.dispose();
+    _syncService.dispose();
+    _libraryRepo.dispose();
     super.dispose();
   }
 
@@ -121,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: const Color(0xFF1DB6A2),
                       title: 'Sincronizar con la PC',
                       subtitle:
-                          'Bajá las canciones que procesaste en la PC, sin cables.',
+                          'Se bajan solas al abrir la app. Tocá para forzar.',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const SyncScreen()),
                       ),
