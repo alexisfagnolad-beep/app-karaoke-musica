@@ -118,7 +118,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Separa una pista con Demucs (con caché de pistas).",
     )
-    parser.add_argument("input", help="Archivo de audio de entrada (mp3, wav, etc.)")
+    parser.add_argument("input", nargs="?",
+                        help="Archivo de audio de entrada (mp3, wav, etc.)")
+    parser.add_argument("--project", default=None,
+                        help="Carpeta de un proyecto ya separado: reusa el caché "
+                             "de pistas (no necesita el audio original).")
     parser.add_argument("-o", "--out", default="proyectos",
                         help="Carpeta de proyectos (por defecto: proyectos)")
     parser.add_argument("-n", "--model", default="htdemucs",
@@ -127,29 +131,44 @@ def main() -> int:
                         help="Instrumento a practicar (por defecto: voz)")
     args = parser.parse_args()
 
-    input_path = Path(args.input).expanduser().resolve()
-    if not input_path.exists():
-        print(f"ERROR: no encontré el archivo: {input_path}", file=sys.stderr)
-        return 1
-
     stem_name, ref_kind, fmin = INSTRUMENTS[args.instrument]
 
-    title = input_path.stem
-    project_dir = Path(args.out).expanduser().resolve() / title
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"Canción: {title}")
-    print(f"Instrumento a practicar: {args.instrument}")
-    print(f"Proyecto: {project_dir}")
-
-    try:
-        stems = ensure_stems(input_path, project_dir, args.model)
-    except subprocess.CalledProcessError as exc:
-        print(f"ERROR: Demucs falló (código {exc.returncode}).", file=sys.stderr)
-        return 1
-    except Exception as exc:  # noqa: BLE001
-        print(f"ERROR: no pude separar: {exc}", file=sys.stderr)
-        return 1
+    if args.project:
+        # Reprocesar otro instrumento desde el caché (sin audio de entrada).
+        project_dir = Path(args.project).expanduser().resolve()
+        title = project_dir.name
+        stems = cached_stems(project_dir / "stems")
+        if not stems:
+            print("ERROR: este proyecto no tiene la separación en caché "
+                  "(stems/). Reprocesalo desde la canción original.",
+                  file=sys.stderr)
+            return 1
+        print(f"Canción: {title}")
+        print(f"Instrumento a practicar: {args.instrument}")
+        print("-> Uso la separación en caché (no vuelvo a correr Demucs).")
+    else:
+        if not args.input:
+            print("ERROR: falta la canción de entrada.", file=sys.stderr)
+            return 1
+        input_path = Path(args.input).expanduser().resolve()
+        if not input_path.exists():
+            print(f"ERROR: no encontré el archivo: {input_path}", file=sys.stderr)
+            return 1
+        title = input_path.stem
+        project_dir = Path(args.out).expanduser().resolve() / title
+        project_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Canción: {title}")
+        print(f"Instrumento a practicar: {args.instrument}")
+        print(f"Proyecto: {project_dir}")
+        try:
+            stems = ensure_stems(input_path, project_dir, args.model)
+        except subprocess.CalledProcessError as exc:
+            print(f"ERROR: Demucs falló (código {exc.returncode}).",
+                  file=sys.stderr)
+            return 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: no pude separar: {exc}", file=sys.stderr)
+            return 1
 
     # Limpiamos referencias de un instrumento anterior (si cambiaste de
     # instrumento en la misma canción) para no publicar una vieja por error.

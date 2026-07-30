@@ -10,6 +10,7 @@ Se lanza con `Karaoke.bat` (doble clic).
 import json
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -84,6 +85,7 @@ class KaraokeApp:
         self._container.pack(fill="both", expand=True)
         self._build_home()
         self._build_procesar()
+        self._build_proyectos()
         self._display("home")
 
         self.root.after(100, self._drain)
@@ -126,6 +128,8 @@ class KaraokeApp:
         self._views[name].pack(fill="both", expand=True)
         self._current = name
         self._update_nav()
+        if name == "proyectos":
+            self._refresh_proyectos()
 
     def navigate(self, name: str):
         if name == self._current:
@@ -156,6 +160,7 @@ class KaraokeApp:
         subtitles = {
             "home": "Separo la voz, dejo la pista lista y la envío al celular.",
             "procesar": "Elegí el instrumento y la canción para procesar.",
+            "proyectos": "Tus canciones procesadas: envialas, abrilas o borralas.",
         }
         self.subtitle.configure(text=subtitles.get(self._current, ""))
 
@@ -178,6 +183,8 @@ class KaraokeApp:
                  bg=self.bg).pack(pady=(24, 18))
         self._home_button(inner, "🎵  Procesar una canción", self.accent,
                           lambda: self.navigate("procesar"), "#6A3EF0")
+        self._home_button(inner, "🗂️  Proyectos", self.teal,
+                          lambda: self.navigate("proyectos"), "#159E8C")
         self.update_btn = self._home_button(
             inner, "🔄  Actualizar app", self.panel, self.update_app, "#272334")
         self.token_btn = self._home_button(
@@ -250,6 +257,149 @@ class KaraokeApp:
                                      padx=12, pady=8, cursor="hand2", bd=0,
                                      command=self.publish)
         self.publish_btn.pack(side="left", expand=True, fill="x", padx=(6, 0))
+
+    # ---- vista: proyectos ----
+    def _build_proyectos(self):
+        v = tk.Frame(self._container, bg=self.bg)
+        self._views["proyectos"] = v
+        content = tk.Frame(v, bg=self.bg)
+        content.pack(fill="both", expand=True, padx=24, pady=18)
+
+        tk.Label(content, text="Canciones procesadas",
+                 font=("Segoe UI", 13, "bold"), fg="white", bg=self.bg).pack(
+            anchor="w", pady=(0, 8))
+
+        self.proj_list = tk.Listbox(
+            content, font=("Segoe UI", 11), bg=self.panel, fg="white",
+            selectbackground=self.accent, selectforeground="white",
+            relief="flat", highlightthickness=0, activestyle="none")
+        self.proj_list.pack(fill="both", expand=True)
+
+        self.proj_empty = tk.Label(
+            content, text="Todavía no procesaste ninguna canción.",
+            font=("Segoe UI", 10), fg=self.muted, bg=self.bg)
+
+        actions = tk.Frame(content, bg=self.bg)
+        actions.pack(fill="x", pady=(12, 0))
+
+        def act(text, color, hover, command):
+            b = tk.Button(actions, text=text, font=("Segoe UI", 10, "bold"),
+                          fg="white", bg=color, activebackground=hover,
+                          activeforeground="white", relief="flat", bd=0,
+                          cursor="hand2", pady=8, command=command)
+            b.pack(side="left", expand=True, fill="x", padx=3)
+            return b
+
+        act("📲 Enviar", self.teal, "#159E8C", self._proj_publish)
+        act("📂 Abrir", self.panel, "#272334", self._proj_open)
+        act("🔁 Otro instrumento", self.panel, "#272334", self._proj_reprocess)
+        act("🗑 Borrar", "#8A2740", "#A02F4C", self._proj_delete)
+
+    def _list_projects(self):
+        base = HERE / "proyectos"
+        if not base.exists():
+            return []
+        out = []
+        for d in sorted(base.iterdir()):
+            if d.is_dir() and (d / "meta.json").exists():
+                out.append(d)
+        return out
+
+    def _refresh_proyectos(self):
+        self._project_dirs = self._list_projects()
+        self.proj_list.delete(0, "end")
+        labels = {"voz": "Voz", "bateria": "Batería", "bajo": "Bajo",
+                  "otros": "Otros"}
+        for d in self._project_dirs:
+            title = d.name
+            inst = ""
+            try:
+                meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+                title = meta.get("title", d.name)
+                inst = labels.get(meta.get("instrument", ""), "")
+            except Exception:  # noqa: BLE001
+                pass
+            self.proj_list.insert("end", f"{title}   —   {inst}")
+        if self._project_dirs:
+            self.proj_empty.pack_forget()
+            self.proj_list.selection_clear(0, "end")
+            self.proj_list.selection_set(0)
+        else:
+            self.proj_empty.pack(pady=8)
+
+    def _selected_project(self):
+        sel = self.proj_list.curselection()
+        if not sel:
+            messagebox.showinfo("Proyectos", "Elegí una canción de la lista.")
+            return None
+        return self._project_dirs[sel[0]]
+
+    def _proj_publish(self):
+        d = self._selected_project()
+        if d is not None:
+            self.navigate("procesar")  # para ver el progreso/log.
+            self._do_publish(d)
+
+    def _proj_open(self):
+        d = self._selected_project()
+        if d is not None:
+            try:
+                os.startfile(str(d))  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _proj_delete(self):
+        d = self._selected_project()
+        if d is None:
+            return
+        if messagebox.askyesno(
+                "Borrar", f"¿Borrar el proyecto '{d.name}' del disco?"):
+            try:
+                shutil.rmtree(d, ignore_errors=True)
+            except Exception:  # noqa: BLE001
+                pass
+            self._refresh_proyectos()
+
+    def _proj_reprocess(self):
+        d = self._selected_project()
+        if d is None:
+            return
+        instrument = self._ask_instrument()
+        if not instrument:
+            return
+        self.navigate("procesar")
+        self.project = None
+        self.btn.configure(state="disabled")
+        self.open_btn.configure(state="disabled")
+        self.publish_btn.configure(state="disabled")
+        self.progress.start(12)
+        threading.Thread(target=self._run_project, args=(d, instrument),
+                         daemon=True).start()
+
+    def _ask_instrument(self):
+        """Modal para elegir instrumento. Devuelve la key o None."""
+        win = tk.Toplevel(self.root)
+        win.title("Instrumento")
+        win.configure(bg=self.bg)
+        win.transient(self.root)
+        win.grab_set()
+        result = {"key": None}
+        tk.Label(win, text="¿Qué instrumento querés practicar?",
+                 font=("Segoe UI", 12, "bold"), fg="white", bg=self.bg).pack(
+            padx=24, pady=(18, 12))
+        for label, key in self._label_to_key.items():
+            tk.Button(
+                win, text=label, font=("Segoe UI", 11, "bold"), fg="white",
+                bg=self.panel, activebackground="#272334",
+                activeforeground="white", relief="flat", bd=0, cursor="hand2",
+                width=28, pady=8,
+                command=lambda k=key: (result.__setitem__("key", k),
+                                       win.destroy())).pack(padx=24, pady=4)
+        tk.Button(win, text="Cancelar", font=("Segoe UI", 9), fg=self.muted,
+                  bg=self.bg, activebackground=self.bg, relief="flat", bd=0,
+                  cursor="hand2", command=win.destroy).pack(pady=(4, 16))
+        win.wait_window()
+        return result["key"]
 
     # ---- log en pantalla (desde el hilo de trabajo) ----
     def logln(self, text: str):
@@ -339,38 +489,59 @@ class KaraokeApp:
                 self.logln("⚠️  La separación no terminó. Probá de nuevo.")
                 return
             self.project = projects / inp.stem
-
-            # Tipo de referencia según lo que dejó separate.py en meta.json.
-            ref_kind = "melody"
-            try:
-                meta = json.loads(
-                    (self.project / "meta.json").read_text(encoding="utf-8"))
-                ref_kind = meta.get("referenceKind", "melody")
-            except Exception:  # noqa: BLE001
-                pass
-
-            self.logln("")
-            if ref_kind == "rhythm":
-                self.logln("[2/2] Extrayendo la referencia de ritmo...")
-                self._stream([PY, str(HERE / "rhythm.py"), str(self.project)])
-            else:
-                self.logln("[2/3] Extrayendo la melodía de referencia...")
-                self._stream([PY, str(HERE / "melody.py"), str(self.project)])
-                # La letra solo tiene sentido para la voz.
-                if instrument == "voz":
-                    self.logln("")
-                    self.logln("[3/3] Transcribiendo la letra (Whisper)...")
-                    self.logln("      La 1ª vez baja el modelo; puede tardar.")
-                    rc_ly = self._stream(
-                        [PY, str(HERE / "lyrics.py"), str(self.project)])
-                    if rc_ly == 2:
-                        self.logln("      (Sin letra esta vez; el resto quedó OK.)")
-            self.logln("")
-            self.logln("✅ ¡Listo! Ya podés abrir la carpeta del resultado.")
+            self._extract_reference(self.project, instrument)
         except Exception as exc:  # noqa: BLE001
             self.logln(f"Error: {exc}")
         finally:
             self.root.after(0, self._done)
+
+    def _run_project(self, project_dir, instrument: str):
+        """Reprocesa OTRO instrumento de un proyecto ya separado (usa el caché)."""
+        try:
+            project_dir = Path(project_dir)
+            self.logln(f"Reprocesando: {project_dir.name}  (instrumento: {instrument})")
+            self.logln("[1/2] Reusando la separación en caché (sin Demucs)...")
+            rc = self._stream([PY, str(HERE / "separate.py"),
+                               "--project", str(project_dir),
+                               "--instrument", instrument])
+            if rc != 0:
+                self.logln("")
+                self.logln("⚠️  No se pudo reprocesar (¿falta el caché?).")
+                return
+            self.project = project_dir
+            self._extract_reference(project_dir, instrument)
+        except Exception as exc:  # noqa: BLE001
+            self.logln(f"Error: {exc}")
+        finally:
+            self.root.after(0, self._done)
+
+    def _extract_reference(self, project_dir, instrument: str):
+        """Extrae la referencia (melodía o ritmo) y, para voz, la letra."""
+        ref_kind = "melody"
+        try:
+            meta = json.loads(
+                (Path(project_dir) / "meta.json").read_text(encoding="utf-8"))
+            ref_kind = meta.get("referenceKind", "melody")
+        except Exception:  # noqa: BLE001
+            pass
+
+        self.logln("")
+        if ref_kind == "rhythm":
+            self.logln("[2/2] Extrayendo la referencia de ritmo...")
+            self._stream([PY, str(HERE / "rhythm.py"), str(project_dir)])
+        else:
+            self.logln("[2/3] Extrayendo la melodía de referencia...")
+            self._stream([PY, str(HERE / "melody.py"), str(project_dir)])
+            if instrument == "voz":
+                self.logln("")
+                self.logln("[3/3] Transcribiendo la letra (Whisper)...")
+                self.logln("      La 1ª vez baja el modelo; puede tardar.")
+                rc_ly = self._stream(
+                    [PY, str(HERE / "lyrics.py"), str(project_dir)])
+                if rc_ly == 2:
+                    self.logln("      (Sin letra esta vez; el resto quedó OK.)")
+        self.logln("")
+        self.logln("✅ ¡Listo! Ya podés abrir la carpeta del resultado.")
 
     def _done(self):
         self.progress.stop()
@@ -392,7 +563,10 @@ class KaraokeApp:
 
     # ---- publicar al celular (auto-sync por GitHub) ----
     def publish(self):
-        if self.project is None:
+        self._do_publish(self.project)
+
+    def _do_publish(self, project):
+        if project is None:
             return
         token = self._get_token()
         if not token:
@@ -404,8 +578,7 @@ class KaraokeApp:
         self.publish_btn.configure(state="disabled")
         self.progress.start(12)
         self.logln("")
-        self.logln("Enviando al celular (subiendo a GitHub)...")
-        project = self.project
+        self.logln(f"Enviando al celular: {Path(project).name} ...")
 
         def work():
             ok, msg = publicar.publish_project(project, token, log=self.logln)
@@ -417,8 +590,8 @@ class KaraokeApp:
                 if ok:
                     messagebox.showinfo(
                         "Enviar al celular",
-                        msg + "\n\nAbrí la app en el celular y tocá "
-                        "'Sincronizar con la PC'.")
+                        msg + "\n\nEn el celular se baja sola al abrir la app "
+                        "(o entrá a 'Sincronizar con la PC').")
                 elif publicar.is_token_error(msg):
                     # El token guardado no sirve: lo borramos y ofrecemos cambiarlo.
                     self._forget_token()
@@ -426,7 +599,7 @@ class KaraokeApp:
                             "Enviar al celular",
                             msg + "\n\n¿Querés pegar un token nuevo ahora?"):
                         if self._get_token():
-                            self.publish()  # reintenta con el token nuevo.
+                            self._do_publish(project)  # reintenta.
                 else:
                     messagebox.showwarning("Enviar al celular", msg)
 
