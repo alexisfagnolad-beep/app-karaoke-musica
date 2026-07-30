@@ -156,8 +156,22 @@ class UpdateService extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _set(UpdateStatus.error, 'Error al buscar actualización: $e');
+      _set(UpdateStatus.error, _friendlyError(e));
     }
+  }
+
+  /// Traduce errores técnicos a algo entendible (típico: sin internet).
+  String _friendlyError(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('socketexception') ||
+        s.contains('failed host lookup') ||
+        s.contains('no address') ||
+        s.contains('network is unreachable') ||
+        s.contains('connection')) {
+      return 'Sin conexión a internet. Conectate a wifi o datos y probá de '
+          'nuevo.';
+    }
+    return 'Error al buscar actualización: $e';
   }
 
   /// Descarga el APK/instalador y lo abre para instalar.
