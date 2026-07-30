@@ -21,17 +21,31 @@ import numpy as np
 import soundfile as sf
 
 
+def _band_of(mag, sr, win):
+    """Clasifica un golpe por dónde tiene más energía: 0 grave (bombo),
+    1 medio (redoblante), 2 agudo (hi-hat/platillos)."""
+    freqs = np.fft.rfftfreq(win, d=1.0 / sr)
+    low = float(np.sum(mag[freqs < 150]))
+    mid = float(np.sum(mag[(freqs >= 150) & (freqs < 1500)]))
+    high = float(np.sum(mag[freqs >= 1500]))
+    # Pesos: el bombo domina en graves; el hi-hat en agudos.
+    scores = [low, mid, high * 1.3]
+    return int(np.argmax(scores))
+
+
 def detect_onsets(sig, sr, hop=512, win=1024, min_interval=0.08, delta=0.12):
-    """Devuelve la lista de tiempos (segundos) de los golpes detectados."""
+    """Devuelve la lista de golpes [(t, band)] detectados."""
     if len(sig) < win:
         return []
     n = 1 + (len(sig) - win) // hop
     window = np.hanning(win)
     prev_mag = None
     flux = np.zeros(n)
+    mags = []
     for i in range(n):
         frame = sig[i * hop:i * hop + win] * window
         mag = np.abs(np.fft.rfft(frame))
+        mags.append(mag)
         if prev_mag is not None:
             diff = mag - prev_mag
             flux[i] = float(np.sum(diff[diff > 0]))
@@ -50,7 +64,8 @@ def detect_onsets(sig, sr, hop=512, win=1024, min_interval=0.08, delta=0.12):
         local_max = flux[max(0, i - 1):min(n, i + 2)].max()
         t = i * hop / sr
         if flux[i] > thr and flux[i] == local_max and (t - last) >= min_interval:
-            onsets.append(round(t, 3))
+            band = _band_of(mags[i], sr, win)
+            onsets.append((round(t, 3), band))
             last = t
     return onsets
 
@@ -84,9 +99,12 @@ def main() -> int:
     print(f"Analizando el ritmo de: {audio.name} ...")
     data, sr = sf.read(str(audio), always_2d=True)
     sig = data.mean(axis=1)
-    onsets = detect_onsets(sig, sr)
+    detected = detect_onsets(sig, sr)  # [(t, band), ...]
+    hits = [{"t": t, "band": b} for (t, b) in detected]
+    onsets = [t for (t, _b) in detected]  # compatibilidad con versiones viejas
     out.write_text(
-        json.dumps({"onsets": onsets, "count": len(onsets)}, ensure_ascii=False),
+        json.dumps({"hits": hits, "onsets": onsets, "count": len(hits)},
+                   ensure_ascii=False),
         encoding="utf-8",
     )
 

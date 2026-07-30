@@ -1,18 +1,41 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+/// Un golpe de la referencia: instante [t] (seg) y [band] (0 = grave/bombo,
+/// 1 = medio/redoblante, 2 = agudo/hi-hat) para la vista didáctica.
+class RhythmHit {
+  final double t;
+  final int band;
+  const RhythmHit(this.t, this.band);
+}
+
 /// Referencia rítmica generada por la PC (`rhythm.json`): los instantes en que
 /// ocurre cada golpe (onset) de, por ejemplo, la batería. Se usa para puntuar
 /// qué tan bien caés en el tiempo.
 class Rhythm {
   final List<double> onsets; // tiempos en segundos, ordenados
+  final List<RhythmHit> hits; // golpes con banda (para la vista didáctica)
 
-  const Rhythm({required this.onsets});
+  const Rhythm({required this.onsets, this.hits = const []});
 
   factory Rhythm.fromJson(Map<String, dynamic> json) {
+    // Formato nuevo: "hits": [{t, band}]. Compatibilidad: "onsets": [t...].
+    final rawHits = json['hits'] as List?;
+    if (rawHits != null && rawHits.isNotEmpty) {
+      final hits = rawHits.map((e) {
+        final m = e as Map<String, dynamic>;
+        return RhythmHit(
+          (m['t'] as num).toDouble(),
+          (m['band'] as num?)?.toInt() ?? 0,
+        );
+      }).toList()..sort((a, b) => a.t.compareTo(b.t));
+      final onsets = hits.map((h) => h.t).toList();
+      return Rhythm(onsets: onsets, hits: hits);
+    }
     final raw = (json['onsets'] as List?) ?? const [];
     final onsets = raw.map((e) => (e as num).toDouble()).toList()..sort();
-    return Rhythm(onsets: onsets);
+    final hits = onsets.map((t) => RhythmHit(t, 0)).toList();
+    return Rhythm(onsets: onsets, hits: hits);
   }
 
   static Rhythm parse(String source) =>

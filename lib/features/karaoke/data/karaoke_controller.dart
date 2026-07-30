@@ -74,10 +74,15 @@ class KaraokeController extends ChangeNotifier {
   KaraokeResult? melodicResult;
   RhythmResult? rhythmResult;
 
+  /// Tiempo (seg) del último golpe del usuario (para el flash de la vista de
+  /// batería). -1 si todavía no golpeó.
+  double lastUserHitT = -1;
+
   bool get running => _running;
   String? get error => _error;
   MusicalNote? get sung => _sung;
   MelodyFrame? get target => _target;
+  Rhythm? get rhythmRef => _rhythm;
   int get hits => _hits;
   double? get livePitch => _livePitch;
   int get liveScore => _liveScore.floor();
@@ -155,6 +160,7 @@ class KaraokeController extends ChangeNotifier {
     _userOnsets.clear();
     _onset.reset();
     _hits = 0;
+    lastUserHitT = -1;
     _liveScore = 0;
     _direction = 0;
     _lastT = null;
@@ -214,6 +220,7 @@ class KaraokeController extends ChangeNotifier {
       if (_onset.process(block, t)) {
         _userOnsets.add(t);
         _hits++;
+        lastUserHitT = t;
       }
     } else {
       final result = await _pitch.getPitchFromFloatBuffer(block);

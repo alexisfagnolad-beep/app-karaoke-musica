@@ -5,6 +5,7 @@ import '../data/karaoke_controller.dart';
 import '../domain/lyrics.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
+import 'drum_roll_view.dart';
 import 'lyrics_view.dart';
 import 'piano_roll_view.dart';
 import 'pitch_roll_view.dart';
@@ -160,9 +161,11 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
             ),
           if (!_c.isRhythm && !widget.freeMode) _melodicHeader(),
           if (!_c.isRhythm && !widget.freeMode) const SizedBox(height: 12),
+          if (_c.isRhythm) _rhythmHeader(),
+          if (_c.isRhythm) const SizedBox(height: 12),
           Expanded(
             child: _c.isRhythm
-                ? Center(child: _rhythmLive())
+                ? DrumRollView(controller: _c)
                 : (_pianoView
                       ? PianoRollView(controller: _c)
                       : PitchRollView(controller: _c)),
@@ -285,20 +288,38 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
     );
   }
 
-  Widget _rhythmLive() {
+  Widget _rhythmHeader() {
     final theme = Theme.of(context);
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Icon(Icons.graphic_eq, size: 96, color: theme.colorScheme.primary),
-        const SizedBox(height: 16),
-        Text('Golpes: ${_c.hits}', style: theme.textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        Text(
-          _c.running
-              ? 'Tocá siguiendo el ritmo de la canción'
-              : 'Tocá "Empezar" y seguí el ritmo',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Golpes',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            Text(
+              '${_c.hits}',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        Flexible(
+          child: Text(
+            _c.running
+                ? 'Seguí los golpes que caen en cada pad'
+                : 'Tocá "Empezar" y seguí el ritmo',
+            textAlign: TextAlign.end,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
           ),
         ),
       ],

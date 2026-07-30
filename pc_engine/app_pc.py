@@ -369,6 +369,19 @@ class KaraokeApp:
         instrument = self._ask_instrument()
         if not instrument:
             return
+        # Piano/guitarra usan un modelo distinto (6 pistas). Si no está en caché,
+        # no se puede reprocesar desde acá: hay que partir de la canción original.
+        if instrument in ("piano", "guitarra"):
+            cache6 = d / "stems" / "htdemucs_6s" / "vocals.wav"
+            if not cache6.exists():
+                messagebox.showinfo(
+                    "Piano / Guitarra",
+                    "Para piano o guitarra hace falta separar con otro modelo "
+                    "(6 pistas), que esta canción todavía no tiene.\n\n"
+                    "Andá a Inicio -> 'Procesar una canción', elegí "
+                    f"{instrument} y volvé a elegir la canción original. La 1ª "
+                    "vez tarda más (baja un modelo nuevo).")
+                return
         self.navigate("procesar")
         self.project = None
         self.btn.configure(state="disabled")
