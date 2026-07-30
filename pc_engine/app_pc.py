@@ -43,16 +43,16 @@ class KaraokeApp:
         self._msgs: "queue.Queue[str]" = queue.Queue()
 
         # Paleta (misma identidad que la app del celular).
-        bg = "#12101A"
-        panel = "#1C1926"
-        accent = "#7C4DFF"
-        teal = "#1DB6A2"
-        muted = "#B9B4C7"
+        self.bg = "#12101A"
+        self.panel = "#1C1926"
+        self.accent = "#7C4DFF"
+        self.teal = "#1DB6A2"
+        self.muted = "#B9B4C7"
 
         root.title("Karaoke — Procesador (PC)")
-        root.geometry("720x580")
-        root.configure(bg=bg)
-        root.minsize(640, 520)
+        root.geometry("760x620")
+        root.configure(bg=self.bg)
+        root.minsize(660, 560)
 
         # Estilo de la barra de progreso.
         style = ttk.Style()
@@ -61,26 +61,10 @@ class KaraokeApp:
         except tk.TclError:
             pass
         style.configure("Karaoke.Horizontal.TProgressbar",
-                        troughcolor=panel, background=accent,
-                        bordercolor=panel, lightcolor=accent, darkcolor=accent)
+                        troughcolor=self.panel, background=self.accent,
+                        bordercolor=self.panel, lightcolor=self.accent,
+                        darkcolor=self.accent)
 
-        # --- Encabezado con banda de color ---
-        header = tk.Frame(root, bg=accent)
-        header.pack(fill="x")
-        tk.Label(header, text="🎤  Karaoke — Procesador",
-                 font=("Segoe UI", 18, "bold"),
-                 fg="white", bg=accent).pack(anchor="w", padx=24, pady=(18, 2))
-        tk.Label(header,
-                 text="Separo la voz, dejo la pista lista para cantar y la envío al celular.",
-                 font=("Segoe UI", 10), fg="#EDE9FF", bg=accent).pack(
-            anchor="w", padx=24, pady=(0, 16))
-
-        # --- Contenido ---
-        content = tk.Frame(root, bg=bg)
-        content.pack(fill="both", expand=True, padx=24, pady=18)
-
-        # Selector de instrumento a practicar (el valor visible es la etiqueta;
-        # _instrument_key() la traduce al id que entiende el motor).
         self._label_to_key = {
             "🎤  Voz (cantar)": "voz",
             "🥁  Batería (ritmo)": "bateria",
@@ -88,33 +72,153 @@ class KaraokeApp:
             "🎹  Otros (guitarra/teclado)": "otros",
         }
         self.instrument = tk.StringVar(value="🎤  Voz (cantar)")
-        picker = tk.Frame(content, bg=bg)
+
+        # --- Navegación entre vistas ---
+        self._current = None
+        self._history = []
+        self._forward = []
+        self._views = {}
+
+        self._build_header()
+        self._container = tk.Frame(root, bg=self.bg)
+        self._container.pack(fill="both", expand=True)
+        self._build_home()
+        self._build_procesar()
+        self._display("home")
+
+        self.root.after(100, self._drain)
+
+    # ---- barra superior con navegación ----
+    def _build_header(self):
+        header = tk.Frame(self.root, bg=self.accent)
+        header.pack(fill="x")
+
+        nav = tk.Frame(header, bg=self.accent)
+        nav.pack(fill="x", padx=16, pady=(10, 0))
+        self.back_btn = tk.Button(
+            nav, text="←", font=("Segoe UI", 14, "bold"), fg="white",
+            bg=self.accent, activebackground="#6A3EF0", activeforeground="white",
+            disabledforeground="#B9A9FF", relief="flat", bd=0, cursor="hand2",
+            width=3, command=self.go_back)
+        self.back_btn.pack(side="left")
+        self.fwd_btn = tk.Button(
+            nav, text="→", font=("Segoe UI", 14, "bold"), fg="white",
+            bg=self.accent, activebackground="#6A3EF0", activeforeground="white",
+            disabledforeground="#B9A9FF", relief="flat", bd=0, cursor="hand2",
+            width=3, command=self.go_forward)
+        self.fwd_btn.pack(side="left")
+
+        # Título clickeable: vuelve al inicio.
+        self.title_lbl = tk.Label(
+            nav, text="🎤  Karaoke — Procesador",
+            font=("Segoe UI", 18, "bold"), fg="white", bg=self.accent,
+            cursor="hand2")
+        self.title_lbl.pack(side="left", padx=(12, 0))
+        self.title_lbl.bind("<Button-1>", lambda e: self.go_home())
+
+        self.subtitle = tk.Label(
+            header, text="", font=("Segoe UI", 10), fg="#EDE9FF", bg=self.accent)
+        self.subtitle.pack(anchor="w", padx=24, pady=(2, 14))
+
+    def _display(self, name: str):
+        for view in self._views.values():
+            view.pack_forget()
+        self._views[name].pack(fill="both", expand=True)
+        self._current = name
+        self._update_nav()
+
+    def navigate(self, name: str):
+        if name == self._current:
+            return
+        if self._current is not None:
+            self._history.append(self._current)
+        self._forward.clear()
+        self._display(name)
+
+    def go_back(self):
+        if not self._history:
+            return
+        self._forward.append(self._current)
+        self._display(self._history.pop())
+
+    def go_forward(self):
+        if not self._forward:
+            return
+        self._history.append(self._current)
+        self._display(self._forward.pop())
+
+    def go_home(self):
+        self.navigate("home")
+
+    def _update_nav(self):
+        self.back_btn.configure(state="normal" if self._history else "disabled")
+        self.fwd_btn.configure(state="normal" if self._forward else "disabled")
+        subtitles = {
+            "home": "Separo la voz, dejo la pista lista y la envío al celular.",
+            "procesar": "Elegí el instrumento y la canción para procesar.",
+        }
+        self.subtitle.configure(text=subtitles.get(self._current, ""))
+
+    # ---- vista: inicio ----
+    def _home_button(self, parent, text, color, command, hover):
+        b = tk.Button(parent, text=text, font=("Segoe UI", 13, "bold"),
+                      fg="white", bg=color, activebackground=hover,
+                      activeforeground="white", relief="flat", bd=0,
+                      cursor="hand2", command=command, width=30, pady=13)
+        b.pack(pady=7)
+        return b
+
+    def _build_home(self):
+        v = tk.Frame(self._container, bg=self.bg)
+        self._views["home"] = v
+        inner = tk.Frame(v, bg=self.bg)
+        inner.pack(expand=True)
+        tk.Label(inner, text="¿Qué querés hacer?",
+                 font=("Segoe UI", 15, "bold"), fg="white",
+                 bg=self.bg).pack(pady=(24, 18))
+        self._home_button(inner, "🎵  Procesar una canción", self.accent,
+                          lambda: self.navigate("procesar"), "#6A3EF0")
+        self.update_btn = self._home_button(
+            inner, "🔄  Actualizar app", self.panel, self.update_app, "#272334")
+        self.token_btn = self._home_button(
+            inner, "🔑  Cambiar token de GitHub", self.panel,
+            self.change_token, "#272334")
+
+    # ---- vista: procesar ----
+    def _build_procesar(self):
+        v = tk.Frame(self._container, bg=self.bg)
+        self._views["procesar"] = v
+        content = tk.Frame(v, bg=self.bg)
+        content.pack(fill="both", expand=True, padx=24, pady=18)
+
+        picker = tk.Frame(content, bg=self.bg)
         picker.pack(fill="x", pady=(0, 12))
         tk.Label(picker, text="Instrumento a practicar:",
-                 font=("Segoe UI", 10), fg=muted, bg=bg).pack(side="left")
+                 font=("Segoe UI", 10), fg=self.muted, bg=self.bg).pack(
+            side="left")
         self.instrument_menu = tk.OptionMenu(
             picker, self.instrument, *self._label_to_key.keys())
         self.instrument_menu.configure(
-            font=("Segoe UI", 10, "bold"), bg=panel, fg="white",
+            font=("Segoe UI", 10, "bold"), bg=self.panel, fg="white",
             activebackground="#272334", activeforeground="white",
             relief="flat", bd=0, highlightthickness=0, cursor="hand2",
             width=28, anchor="w")
-        self.instrument_menu["menu"].configure(bg=panel, fg="white")
+        self.instrument_menu["menu"].configure(bg=self.panel, fg="white")
         self.instrument_menu.pack(side="left", padx=(10, 0))
 
         self.btn = tk.Button(content, text="🎵  Elegir canción y procesar",
                              font=("Segoe UI", 13, "bold"),
-                             bg=accent, fg="white", activebackground="#6A3EF0",
+                             bg=self.accent, fg="white",
+                             activebackground="#6A3EF0",
                              activeforeground="white", relief="flat",
                              padx=18, pady=12, cursor="hand2", bd=0,
                              command=self.choose)
         self.btn.pack(fill="x")
 
-        # Línea de estado: avisa si la canción ya está separada (caché).
         self.status_var = tk.StringVar(value="")
         self.status_lbl = tk.Label(
             content, textvariable=self.status_var, font=("Segoe UI", 10),
-            fg=muted, bg=bg, anchor="w", justify="left")
+            fg=self.muted, bg=self.bg, anchor="w", justify="left")
         self.status_lbl.pack(fill="x", pady=(10, 0))
 
         self.progress = ttk.Progressbar(
@@ -122,49 +226,30 @@ class KaraokeApp:
             style="Karaoke.Horizontal.TProgressbar")
         self.progress.pack(fill="x", pady=(14, 10))
 
-        self.log = tk.Text(content, height=13, state="disabled",
-                           font=("Consolas", 9), bg=panel, fg="#D7D3E0",
+        self.log = tk.Text(content, height=12, state="disabled",
+                           font=("Consolas", 9), bg=self.panel, fg="#D7D3E0",
                            relief="flat", padx=12, pady=10,
                            insertbackground="white", highlightthickness=0)
         self.log.pack(fill="both", expand=True)
 
-        # --- Acciones secundarias ---
-        actions = tk.Frame(content, bg=bg)
+        actions = tk.Frame(content, bg=self.bg)
         actions.pack(fill="x", pady=(12, 0))
-
         self.open_btn = tk.Button(actions, text="📂  Abrir carpeta",
                                   font=("Segoe UI", 11), state="disabled",
-                                  bg=panel, fg="white", activebackground="#272334",
+                                  bg=self.panel, fg="white",
+                                  activebackground="#272334",
                                   activeforeground="white", relief="flat",
                                   padx=12, pady=8, cursor="hand2", bd=0,
                                   command=self.open_folder)
         self.open_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
-
         self.publish_btn = tk.Button(actions, text="📲  Enviar al celular",
-                                     font=("Segoe UI", 11, "bold"), state="disabled",
-                                     bg=teal, fg="white",
+                                     font=("Segoe UI", 11, "bold"),
+                                     state="disabled", bg=self.teal, fg="white",
                                      activebackground="#159E8C",
                                      activeforeground="white", relief="flat",
                                      padx=12, pady=8, cursor="hand2", bd=0,
                                      command=self.publish)
         self.publish_btn.pack(side="left", expand=True, fill="x", padx=(6, 0))
-
-        links = tk.Frame(content, bg=bg)
-        links.pack(pady=(10, 0))
-        self.update_btn = tk.Button(links, text="🔄  Actualizar app",
-                                    font=("Segoe UI", 9), fg=muted,
-                                    bg=bg, activebackground=bg,
-                                    activeforeground="white", relief="flat",
-                                    cursor="hand2", bd=0, command=self.update_app)
-        self.update_btn.pack(side="left", padx=(0, 16))
-        self.token_btn = tk.Button(links, text="🔑  Cambiar token",
-                                   font=("Segoe UI", 9), fg=muted,
-                                   bg=bg, activebackground=bg,
-                                   activeforeground="white", relief="flat",
-                                   cursor="hand2", bd=0, command=self.change_token)
-        self.token_btn.pack(side="left")
-
-        self.root.after(100, self._drain)
 
     # ---- log en pantalla (desde el hilo de trabajo) ----
     def logln(self, text: str):
