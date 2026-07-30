@@ -152,9 +152,11 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  /// Descarga un proyecto y lo agrega a la Biblioteca.
-  Future<void> download(RemoteProject p) async {
-    if (p.imported || p.downloading) return;
+  /// Descarga un proyecto y lo agrega a la Biblioteca. Con [force] vuelve a
+  /// bajarlo aunque ya esté importado (reemplaza la versión anterior), para
+  /// traer mejoras como la letra o una melodía más prolija.
+  Future<void> download(RemoteProject p, {bool force = false}) async {
+    if (p.downloading || (p.imported && !force)) return;
     p.downloading = true;
     notifyListeners();
     try {
@@ -180,6 +182,9 @@ class SyncService extends ChangeNotifier {
         lyricsPath = '$base.lyrics.json';
         await _downloadToFile(p.lyricsUrl!, lyricsPath);
       }
+
+      // Si ya estaba importado (re-bajada), reemplazamos la versión anterior.
+      await _repo.deleteByRemoteId(p.id);
 
       await _repo.addSong(
         sourcePath: instPath,

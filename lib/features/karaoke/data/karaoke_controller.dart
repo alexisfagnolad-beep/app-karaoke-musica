@@ -69,7 +69,7 @@ class KaraokeController extends ChangeNotifier {
 
   /// Semitonos de tolerancia para considerar que "pegaste" la barra.
   /// Amable a propósito (es un juego): con estar cerca, cuenta.
-  static const double onPitchTolerance = 2.2;
+  static const double onPitchTolerance = 2.5;
 
   KaraokeResult? melodicResult;
   RhythmResult? rhythmResult;

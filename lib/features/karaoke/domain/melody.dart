@@ -91,8 +91,8 @@ class Melody {
   /// [maxGap]: hueco máximo (seg) que se "puentea" dentro de una misma nota.
   /// [smoothWindow]: ventana (en cuadros) del filtro de mediana (impar).
   List<MelodyNote> notes({
-    double minDuration = 0.09,
-    double maxGap = 0.25,
+    double minDuration = 0.08,
+    double maxGap = 0.35,
     int smoothWindow = 5,
   }) {
     final dt = fps > 0 ? 1.0 / fps : 0.02;

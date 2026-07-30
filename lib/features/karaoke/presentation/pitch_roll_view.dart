@@ -37,19 +37,60 @@ class _PitchRollViewState extends State<PitchRollView>
     final scheme = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
-      child: CustomPaint(
-        painter: _PitchRollPainter(
-          controller: widget.controller,
-          repaint: _ticker,
-          barBase: scheme.onSurface.withValues(alpha: 0.12),
-          lit: const Color(0xFFE0457B),
-          glow: const Color(0xFFFF7FB0),
-          nowLine: scheme.onSurface.withValues(alpha: 0.25),
-          onPitch: const Color(0xFF4AE3B5),
-          offPitch: const Color(0xFFFFB74D),
-        ),
-        size: Size.infinite,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CustomPaint(
+            painter: _PitchRollPainter(
+              controller: widget.controller,
+              repaint: _ticker,
+              barBase: scheme.onSurface.withValues(alpha: 0.12),
+              lit: const Color(0xFFE0457B),
+              glow: const Color(0xFFFF7FB0),
+              nowLine: scheme.onSurface.withValues(alpha: 0.25),
+              onPitch: const Color(0xFF4AE3B5),
+              offPitch: const Color(0xFFFFB74D),
+            ),
+            size: Size.infinite,
+          ),
+          _buildCountIn(),
+        ],
       ),
+    );
+  }
+
+  /// Cuenta regresiva 3‑2‑1 justo antes de que entre la primera nota, para
+  /// prepararte. No aparece si no hay intro (la voz entra enseguida).
+  Widget _buildCountIn() {
+    return AnimatedBuilder(
+      animation: _ticker,
+      builder: (context, _) {
+        final c = widget.controller;
+        if (!c.running || c.notes.isEmpty) return const SizedBox.shrink();
+        final pos = c.player.position.inMilliseconds / 1000.0;
+        final remain = c.notes.first.startT - pos;
+        if (remain <= 0 || remain > 3.5) return const SizedBox.shrink();
+        final n = remain.ceil().clamp(1, 3);
+        return Center(
+          child: Container(
+            width: 120,
+            height: 120,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$n',
+              style: const TextStyle(
+                fontSize: 72,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

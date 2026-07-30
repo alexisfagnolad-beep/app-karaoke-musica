@@ -37,10 +37,13 @@ def autocorr_fft(x: np.ndarray) -> np.ndarray:
     return acf
 
 
-def estimate_f0(frame, sr, fmin=65.0, fmax=1200.0, clarity_threshold=0.5):
-    """Devuelve (f0_hz, clarity). f0=0 significa sin tono (silencio/ruido)."""
+def estimate_f0(frame, sr, fmin=65.0, fmax=1200.0, clarity_threshold=0.35):
+    """Devuelve (f0_hz, clarity). f0=0 significa sin tono (silencio/ruido).
+
+    Umbrales bajos a propósito: capturamos MÁS de la voz (partes suaves o
+    sopladas) para que no falten barras. El celular después suaviza y une."""
     frame = frame - frame.mean()
-    if math.sqrt(float(np.mean(frame ** 2))) < 0.01:
+    if math.sqrt(float(np.mean(frame ** 2))) < 0.006:
         return 0.0, 0.0
 
     corr = autocorr_fft(frame)

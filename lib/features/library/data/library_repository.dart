@@ -140,6 +140,15 @@ class LibraryRepository extends ChangeNotifier {
   Set<String> importedRemoteIds() =>
       songs.map((s) => s.remoteId).whereType<String>().toSet();
 
+  /// Borra las canciones que vinieron de [remoteId] (para reemplazar al
+  /// re-sincronizar una versión actualizada del proyecto).
+  Future<void> deleteByRemoteId(String remoteId) async {
+    final matches = songs.where((s) => s.remoteId == remoteId).toList();
+    for (final s in matches) {
+      await deleteSong(s);
+    }
+  }
+
   Future<void> updateSong(Song updated) async {
     final i = songs.indexWhere((s) => s.id == updated.id);
     if (i < 0) return;

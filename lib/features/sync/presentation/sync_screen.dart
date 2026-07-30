@@ -105,7 +105,17 @@ class _SyncScreenState extends State<SyncScreen> {
         child: CircularProgressIndicator(strokeWidth: 2.5),
       );
     } else if (p.imported) {
-      trailing = const Icon(Icons.check_circle, color: Color(0xFF1DB6A2));
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF1DB6A2)),
+          IconButton(
+            tooltip: 'Volver a bajar (actualizar)',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _sync.download(p, force: true),
+          ),
+        ],
+      );
     } else {
       trailing = FilledButton.icon(
         onPressed: () => _sync.download(p),
