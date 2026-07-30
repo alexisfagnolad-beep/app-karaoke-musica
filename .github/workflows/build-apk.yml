@@ -75,14 +75,17 @@ jobs:
       - name: Tests
         run: flutter test
 
-      - name: Compilar APK de debug
-        # build-number incremental: cada APK es "más nuevo" que el anterior,
-        # necesario para que las actualizaciones se reconozcan como tales.
-        run: flutter build apk --debug --build-number=${{ github.run_number }}
+      - name: Compilar APK (release, arm64)
+        # Release + una sola arquitectura (arm64) => APK MUCHO más chico y
+        # rápido (AOT) que el debug fat. Firma estable (usa signingConfigs.debug
+        # = karaoke.keystore, que el buildType release reusa por defecto), así
+        # las actualizaciones se instalan encima sin conflicto de firma.
+        # build-number incremental: cada APK es "más nuevo" que el anterior.
+        run: flutter build apk --release --target-platform android-arm64 --build-number=${{ github.run_number }}
 
       - name: Renombrar APK y generar version.json
         run: |
-          cp build/app/outputs/flutter-apk/app-debug.apk karaoke-musica-debug.apk
+          cp build/app/outputs/flutter-apk/app-release.apk karaoke-musica-debug.apk
           # version.json: lo lee el actualizador integrado para saber si hay
           # una versión más nueva que la instalada (compara buildNumber).
           VERSION_NAME=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
