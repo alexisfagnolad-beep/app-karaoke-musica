@@ -17,6 +17,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+import publicar
 import updater
 
 HERE = Path(__file__).resolve().parent
@@ -71,6 +72,14 @@ class KaraokeApp:
                                   relief="flat", padx=10, pady=6, cursor="hand2",
                                   command=self.open_folder)
         self.open_btn.pack(pady=(0, 6))
+
+        self.publish_btn = tk.Button(root, text="📲  Enviar al celular",
+                                     font=("Segoe UI", 11, "bold"), state="disabled",
+                                     bg="#1DB6A2", fg="white",
+                                     activebackground="#159E8C", relief="flat",
+                                     padx=12, pady=6, cursor="hand2",
+                                     command=self.publish)
+        self.publish_btn.pack(pady=(0, 6))
 
         self.update_btn = tk.Button(root, text="🔄  Actualizar app",
                                     font=("Segoe UI", 9), fg="#B9B4C7",
@@ -159,6 +168,7 @@ class KaraokeApp:
         self.btn.configure(state="normal")
         if self.project is not None:
             self.open_btn.configure(state="normal")
+            self.publish_btn.configure(state="normal")
 
     def open_folder(self):
         if self.project is not None:
@@ -166,6 +176,42 @@ class KaraokeApp:
                 os.startfile(str(self.project))  # type: ignore[attr-defined]
             except Exception:  # noqa: BLE001
                 pass
+
+    # ---- publicar al celular (auto-sync por GitHub) ----
+    def publish(self):
+        if self.project is None:
+            return
+        token = self._get_token()
+        if not token:
+            messagebox.showwarning(
+                "Enviar al celular",
+                "Necesito un token de GitHub (con permiso de escritura) para "
+                "subir el proyecto. El mismo que usás para actualizar.")
+            return
+        self.publish_btn.configure(state="disabled")
+        self.progress.start(12)
+        self.logln("")
+        self.logln("Enviando al celular (subiendo a GitHub)...")
+        project = self.project
+
+        def work():
+            ok, msg = publicar.publish_project(project, token, log=self.logln)
+
+            def done():
+                self.progress.stop()
+                self.publish_btn.configure(state="normal")
+                self.logln(msg)
+                if ok:
+                    messagebox.showinfo(
+                        "Enviar al celular",
+                        msg + "\n\nAbrí la app en el celular y tocá "
+                        "'Sincronizar con la PC'.")
+                else:
+                    messagebox.showwarning("Enviar al celular", msg)
+
+            self.root.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
 
     # ---- auto-actualización ----
     def _get_token(self) -> str:

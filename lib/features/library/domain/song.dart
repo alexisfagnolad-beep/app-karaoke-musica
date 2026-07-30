@@ -18,6 +18,10 @@ class Song {
   /// cantar con puntaje. `null` si es solo una canción para reproducir.
   final String? melodyPath;
 
+  /// Id del proyecto remoto del que se sincronizó (de la PC), o `null` si se
+  /// agregó a mano. Sirve para no importar dos veces la misma canción.
+  final String? remoteId;
+
   final DateTime addedAt;
 
   const Song({
@@ -28,6 +32,7 @@ class Song {
     required this.instruments,
     required this.addedAt,
     this.melodyPath,
+    this.remoteId,
   });
 
   /// true si tiene melodía de referencia → se puede cantar con puntaje.
@@ -40,36 +45,39 @@ class Song {
     List<String>? instruments,
     String? melodyPath,
     bool clearMelody = false,
-  }) =>
-      Song(
-        id: id,
-        title: title ?? this.title,
-        path: path,
-        genre: clearGenre ? null : (genre ?? this.genre),
-        instruments: instruments ?? this.instruments,
-        melodyPath: clearMelody ? null : (melodyPath ?? this.melodyPath),
-        addedAt: addedAt,
-      );
+    String? remoteId,
+  }) => Song(
+    id: id,
+    title: title ?? this.title,
+    path: path,
+    genre: clearGenre ? null : (genre ?? this.genre),
+    instruments: instruments ?? this.instruments,
+    melodyPath: clearMelody ? null : (melodyPath ?? this.melodyPath),
+    remoteId: remoteId ?? this.remoteId,
+    addedAt: addedAt,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'path': path,
-        'genre': genre,
-        'instruments': instruments,
-        'melodyPath': melodyPath,
-        'addedAt': addedAt.toIso8601String(),
-      };
+    'id': id,
+    'title': title,
+    'path': path,
+    'genre': genre,
+    'instruments': instruments,
+    'melodyPath': melodyPath,
+    'remoteId': remoteId,
+    'addedAt': addedAt.toIso8601String(),
+  };
 
   factory Song.fromJson(Map<String, dynamic> json) => Song(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        path: json['path'] as String,
-        genre: json['genre'] as String?,
-        instruments:
-            (json['instruments'] as List?)?.cast<String>() ?? const [],
-        melodyPath: json['melodyPath'] as String?,
-        addedAt: DateTime.tryParse(json['addedAt'] as String? ?? '') ??
-            DateTime.fromMillisecondsSinceEpoch(0),
-      );
+    id: json['id'] as String,
+    title: json['title'] as String,
+    path: json['path'] as String,
+    genre: json['genre'] as String?,
+    instruments: (json['instruments'] as List?)?.cast<String>() ?? const [],
+    melodyPath: json['melodyPath'] as String?,
+    remoteId: json['remoteId'] as String?,
+    addedAt:
+        DateTime.tryParse(json['addedAt'] as String? ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+  );
 }

@@ -4,6 +4,7 @@ import '../../karaoke/presentation/practice_setup_screen.dart';
 import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../sync/presentation/sync_screen.dart';
 import '../../update/data/update_service.dart';
 import '../../update/presentation/update_screen.dart';
 
@@ -53,9 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openUpdates() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => UpdateScreen(service: _updateService),
-      ),
+      MaterialPageRoute(builder: (_) => UpdateScreen(service: _updateService)),
     );
   }
 
@@ -83,9 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: Icons.mic,
                       color: const Color(0xFF7C4DFF),
                       title: 'Afinación en vivo',
-                      subtitle: 'Cantá y mirá tu nota y los cents en tiempo real.',
+                      subtitle:
+                          'Cantá y mirá tu nota y los cents en tiempo real.',
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const LivePitchScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const LivePitchScreen(),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -95,7 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Biblioteca',
                       subtitle: 'Tus canciones por género e instrumento.',
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const LibraryScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const LibraryScreen(),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -103,10 +107,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: Icons.stars,
                       color: const Color(0xFFE0457B),
                       title: 'Práctica con puntaje',
-                      subtitle: 'Cantá o tocá sobre un proyecto de la PC y puntuá.',
+                      subtitle:
+                          'Cantá o tocá sobre un proyecto de la PC y puntuá.',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const PracticeSetupScreen()),
+                          builder: (_) => const PracticeSetupScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.cloud_sync,
+                      color: const Color(0xFF1DB6A2),
+                      title: 'Sincronizar con la PC',
+                      subtitle:
+                          'Bajá las canciones que procesaste en la PC, sin cables.',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SyncScreen()),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -124,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: Icons.system_update,
                       color: const Color(0xFF4D9BFF),
                       title: 'Actualizaciones',
-                      subtitle: 'Buscar e instalar la última versión de la app.',
+                      subtitle:
+                          'Buscar e instalar la última versión de la app.',
                       onTap: _openUpdates,
                     ),
                   ],
@@ -257,8 +275,9 @@ class _MenuCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                     ),
                   ],

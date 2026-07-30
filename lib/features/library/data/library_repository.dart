@@ -48,7 +48,8 @@ class LibraryRepository extends ChangeNotifier {
     try {
       final file = await _indexFile();
       if (file.existsSync()) {
-        final data = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
+        final data =
+            json.decode(file.readAsStringSync()) as Map<String, dynamic>;
         final loadedGenres = (data['genres'] as List?)?.cast<String>();
         if (loadedGenres != null && loadedGenres.isNotEmpty) {
           genres = loadedGenres;
@@ -66,10 +67,12 @@ class LibraryRepository extends ChangeNotifier {
 
   Future<void> _save() async {
     final file = await _indexFile();
-    file.writeAsStringSync(json.encode({
-      'genres': genres,
-      'songs': songs.map((s) => s.toJson()).toList(),
-    }));
+    file.writeAsStringSync(
+      json.encode({
+        'genres': genres,
+        'songs': songs.map((s) => s.toJson()).toList(),
+      }),
+    );
   }
 
   /// Agrega una canción copiando el archivo [sourcePath] al almacenamiento
@@ -80,6 +83,7 @@ class LibraryRepository extends ChangeNotifier {
     String? genre,
     required List<String> instruments,
     String? melodySourcePath,
+    String? remoteId,
   }) async {
     final media = await _mediaDir();
     final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'mp3';
@@ -103,6 +107,7 @@ class LibraryRepository extends ChangeNotifier {
         genre: genre,
         instruments: instruments,
         melodyPath: melodyDest,
+        remoteId: remoteId,
         addedAt: DateTime.now(),
       ),
     );
@@ -112,6 +117,10 @@ class LibraryRepository extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
+
+  /// Ids de proyectos remotos ya importados (para no duplicar al sincronizar).
+  Set<String> importedRemoteIds() =>
+      songs.map((s) => s.remoteId).whereType<String>().toSet();
 
   Future<void> updateSong(Song updated) async {
     final i = songs.indexWhere((s) => s.id == updated.id);
@@ -168,9 +177,11 @@ class LibraryRepository extends ChangeNotifier {
     String? instrument,
   }) {
     return all
-        .where((s) =>
-            (genre == null || s.genre == genre) &&
-            (instrument == null || s.instruments.contains(instrument)))
+        .where(
+          (s) =>
+              (genre == null || s.genre == genre) &&
+              (instrument == null || s.instruments.contains(instrument)),
+        )
         .toList();
   }
 }

@@ -48,9 +48,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final q = _search.toLowerCase();
       list = list.where((s) => s.title.toLowerCase().contains(q)).toList();
     }
-    list.sort((a, b) => _sortByTitle
-        ? a.title.toLowerCase().compareTo(b.title.toLowerCase())
-        : b.addedAt.compareTo(a.addedAt));
+    list.sort(
+      (a, b) => _sortByTitle
+          ? a.title.toLowerCase().compareTo(b.title.toLowerCase())
+          : b.addedAt.compareTo(a.addedAt),
+    );
     return list;
   }
 
@@ -61,12 +63,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       builder: (_) => _AddSongSheet(repo: _repo, existing: song),
     );
     if (data == null) return;
-    await _repo.updateSong(song.copyWith(
-      title: data.title,
-      genre: data.genre,
-      clearGenre: data.genre == null,
-      instruments: data.instruments,
-    ));
+    await _repo.updateSong(
+      song.copyWith(
+        title: data.title,
+        genre: data.genre,
+        clearGenre: data.genre == null,
+        instruments: data.instruments,
+      ),
+    );
     // Si eligieron una melodía de referencia en la edición, la asociamos.
     if (data.melodyPath != null) {
       await _repo.attachMelody(song, data.melodyPath!);
@@ -136,9 +140,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _play(Song song) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PlayerScreen(initialPath: song.path, initialName: song.title),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            PlayerScreen(initialPath: song.path, initialName: song.title),
+      ),
+    );
   }
 
   void _sing(Song song) {
@@ -153,13 +160,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => KaraokeScreen(
-        instrumentalPath: song.path,
-        title: song.title,
-        melody: melody,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => KaraokeScreen(
+          instrumentalPath: song.path,
+          title: song.title,
+          melody: melody,
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -257,7 +266,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Wrap(
             spacing: 8,
             children: [
-              _choice('Todos', _genre == null, () => setState(() => _genre = null)),
+              _choice(
+                'Todos',
+                _genre == null,
+                () => setState(() => _genre = null),
+              ),
               for (final g in _repo.genres)
                 _choice(g, _genre == g, () => setState(() => _genre = g)),
             ],
@@ -270,11 +283,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Wrap(
             spacing: 8,
             children: [
-              _choice('Todos', _instrument == null,
-                  () => setState(() => _instrument = null)),
+              _choice(
+                'Todos',
+                _instrument == null,
+                () => setState(() => _instrument = null),
+              ),
               for (final ins in LibraryRepository.instrumentsCatalog)
-                _choice(ins, _instrument == ins,
-                    () => setState(() => _instrument = ins)),
+                _choice(
+                  ins,
+                  _instrument == ins,
+                  () => setState(() => _instrument = ins),
+                ),
             ],
           ),
         ],
@@ -337,11 +356,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         content: Text('¿Quitar "${song.title}"?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Quitar')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Quitar'),
+          ),
         ],
       ),
     );
@@ -355,9 +376,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.library_music,
-                size: 64,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+            Icon(
+              Icons.library_music,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               _repo.songs.isEmpty
@@ -402,7 +427,8 @@ class _AddSongSheet extends StatefulWidget {
 
 class _AddSongSheetState extends State<_AddSongSheet> {
   late final TextEditingController _title = TextEditingController(
-      text: widget.existing?.title ?? widget.defaultTitle);
+    text: widget.existing?.title ?? widget.defaultTitle,
+  );
   late String? _genre = widget.existing?.genre;
   late final Set<String> _instruments = {...?widget.existing?.instruments};
 
@@ -444,11 +470,13 @@ class _AddSongSheetState extends State<_AddSongSheet> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('Agregar')),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Agregar'),
+          ),
         ],
       ),
     );
@@ -472,8 +500,10 @@ class _AddSongSheetState extends State<_AddSongSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_isEditing ? 'Editar canción' : 'Agregar canción',
-                style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              _isEditing ? 'Editar canción' : 'Agregar canción',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _title,
@@ -530,11 +560,10 @@ class _AddSongSheetState extends State<_AddSongSheet> {
               'Es el archivo melody.json que genera la PC. Si lo agregás, vas a '
               'poder "Cantar con puntaje" directo desde la biblioteca.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.7),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -544,8 +573,8 @@ class _AddSongSheetState extends State<_AddSongSheet> {
                 _melodyPath != null
                     ? 'Melodía elegida ✓'
                     : (widget.existing?.canScore == true
-                        ? 'Reemplazar melodía'
-                        : 'Elegir melody.json'),
+                          ? 'Reemplazar melodía'
+                          : 'Elegir melody.json'),
               ),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
@@ -562,18 +591,22 @@ class _AddSongSheetState extends State<_AddSongSheet> {
                     title = widget.existing?.title.isNotEmpty == true
                         ? widget.existing!.title
                         : (widget.defaultTitle.isEmpty
-                            ? 'Canción'
-                            : widget.defaultTitle);
+                              ? 'Canción'
+                              : widget.defaultTitle);
                   }
                   Navigator.pop(
                     context,
                     _NewSongData(
-                        title, _genre, _instruments.toList(), _melodyPath),
+                      title,
+                      _genre,
+                      _instruments.toList(),
+                      _melodyPath,
+                    ),
                   );
                 },
-                child: Text(_isEditing
-                    ? 'Guardar cambios'
-                    : 'Guardar en la biblioteca'),
+                child: Text(
+                  _isEditing ? 'Guardar cambios' : 'Guardar en la biblioteca',
+                ),
               ),
             ),
           ],
