@@ -37,13 +37,14 @@ def autocorr_fft(x: np.ndarray) -> np.ndarray:
     return acf
 
 
-def estimate_f0(frame, sr, fmin=65.0, fmax=1200.0, clarity_threshold=0.35):
+def estimate_f0(frame, sr, fmin=65.0, fmax=1200.0, clarity_threshold=0.28):
     """Devuelve (f0_hz, clarity). f0=0 significa sin tono (silencio/ruido).
 
-    Umbrales bajos a propósito: capturamos MÁS de la voz (partes suaves o
-    sopladas) para que no falten barras. El celular después suaviza y une."""
+    Umbrales bajos a propósito: capturamos MÁS de la melodía principal (voz
+    suave/soplada, piano tenue) para que no falten barras. El celular después
+    suaviza, une y simplifica."""
     frame = frame - frame.mean()
-    if math.sqrt(float(np.mean(frame ** 2))) < 0.006:
+    if math.sqrt(float(np.mean(frame ** 2))) < 0.004:
         return 0.0, 0.0
 
     corr = autocorr_fft(frame)
@@ -79,21 +80,58 @@ def hz_to_note(freq: float):
     return name, midi, cents
 
 
+def _fill_gaps(f0s, fps, max_gap_sec=0.3, max_semitones=5.0):
+    """Rellena huecos cortos entre dos tramos con tono, para que la melodía
+    principal quede CONTINUA (no cortada). Solo rellena si el hueco es corto y
+    la nota de antes y después están cerca (no une saltos grandes ni silencios
+    largos, que sí son pausas reales)."""
+    n = len(f0s)
+    max_gap = int(max_gap_sec * fps)
+    i = 0
+    while i < n:
+        if f0s[i] > 0:
+            i += 1
+            continue
+        j = i
+        while j < n and f0s[j] == 0:
+            j += 1
+        if i - 1 >= 0 and j < n and f0s[i - 1] > 0 and f0s[j] > 0 \
+                and (j - i) <= max_gap:
+            a, b = f0s[i - 1], f0s[j]
+            semis = abs(12 * math.log2(b / a)) if a > 0 and b > 0 else 99
+            if semis <= max_semitones:
+                span = j - (i - 1)
+                for k in range(i, j):
+                    frac = (k - (i - 1)) / span
+                    f0s[k] = a * (b / a) ** frac  # interpolación geométrica
+        i = j
+    return f0s
+
+
 def extract_melody(vocals_path: Path, fps: float = 50.0, window: int = 2048,
                    fmin: float = 65.0):
     sig, sr = read_mono(vocals_path)
     hop = max(1, int(sr / fps))
-    frames = []
+    f0s = []
+    clars = []
     for i in range(0, max(0, len(sig) - window), hop):
         f0, clarity = estimate_f0(sig[i:i + window], sr, fmin=fmin)
+        f0s.append(f0)
+        clars.append(clarity)
+
+    # Rellenamos huecos cortos para que la melodía principal sea continua.
+    f0s = _fill_gaps(f0s, fps)
+
+    frames = []
+    for idx, f0 in enumerate(f0s):
         name, midi, cents = hz_to_note(f0)
         frames.append({
-            "t": round(i / sr, 3),
+            "t": round(idx * hop / sr, 3),
             "f0": round(f0, 2),
             "midi": midi,
             "note": name,
             "cents": round(cents, 1) if cents is not None else None,
-            "clarity": round(float(clarity), 3),
+            "clarity": round(float(clars[idx]), 3),
             "voiced": f0 > 0,
         })
     return {
