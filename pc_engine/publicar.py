@@ -154,9 +154,11 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
         except Exception:  # noqa: BLE001
             meta = {}
     title = meta.get("title") or project_dir.name
-    slug = _slug(title)
     instrument = meta.get("instrument", "voz")
     ref_kind = meta.get("referenceKind", "melody")
+    # El id incluye el instrumento: así conviven en el celular la voz, la
+    # batería, el bajo, etc. de la misma canción (sin pisarse).
+    slug = f"{_slug(title)}-{instrument}"
     # Etiqueta de instrumento para mostrar en el celular.
     instrument_label = {
         "voz": "Voz",
