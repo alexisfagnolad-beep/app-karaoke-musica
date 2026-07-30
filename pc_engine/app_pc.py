@@ -41,52 +41,89 @@ class KaraokeApp:
         self.project = None
         self._msgs: "queue.Queue[str]" = queue.Queue()
 
+        # Paleta (misma identidad que la app del celular).
+        bg = "#12101A"
+        panel = "#1C1926"
+        accent = "#7C4DFF"
+        teal = "#1DB6A2"
+        muted = "#B9B4C7"
+
         root.title("Karaoke — Procesador (PC)")
-        root.geometry("680x500")
-        root.configure(bg="#12101A")
+        root.geometry("720x580")
+        root.configure(bg=bg)
+        root.minsize(640, 520)
 
-        tk.Label(root, text="Karaoke — Procesador",
+        # Estilo de la barra de progreso.
+        style = ttk.Style()
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        style.configure("Karaoke.Horizontal.TProgressbar",
+                        troughcolor=panel, background=accent,
+                        bordercolor=panel, lightcolor=accent, darkcolor=accent)
+
+        # --- Encabezado con banda de color ---
+        header = tk.Frame(root, bg=accent)
+        header.pack(fill="x")
+        tk.Label(header, text="🎤  Karaoke — Procesador",
                  font=("Segoe UI", 18, "bold"),
-                 fg="white", bg="#12101A").pack(pady=(20, 4))
-        tk.Label(root,
-                 text="Separo la voz de la canción y la dejo lista para cantar y puntuar.",
-                 font=("Segoe UI", 10), fg="#B9B4C7", bg="#12101A").pack()
+                 fg="white", bg=accent).pack(anchor="w", padx=24, pady=(18, 2))
+        tk.Label(header,
+                 text="Separo la voz, dejo la pista lista para cantar y la envío al celular.",
+                 font=("Segoe UI", 10), fg="#EDE9FF", bg=accent).pack(
+            anchor="w", padx=24, pady=(0, 16))
 
-        self.btn = tk.Button(root, text="🎵  Elegir canción y procesar",
+        # --- Contenido ---
+        content = tk.Frame(root, bg=bg)
+        content.pack(fill="both", expand=True, padx=24, pady=18)
+
+        self.btn = tk.Button(content, text="🎵  Elegir canción y procesar",
                              font=("Segoe UI", 13, "bold"),
-                             bg="#7C4DFF", fg="white", activebackground="#6A3EF0",
-                             relief="flat", padx=18, pady=10, cursor="hand2",
+                             bg=accent, fg="white", activebackground="#6A3EF0",
+                             activeforeground="white", relief="flat",
+                             padx=18, pady=12, cursor="hand2", bd=0,
                              command=self.choose)
-        self.btn.pack(pady=18)
+        self.btn.pack(fill="x")
 
-        self.progress = ttk.Progressbar(root, mode="indeterminate", length=600)
-        self.progress.pack(pady=4)
+        self.progress = ttk.Progressbar(
+            content, mode="indeterminate",
+            style="Karaoke.Horizontal.TProgressbar")
+        self.progress.pack(fill="x", pady=(14, 10))
 
-        self.log = tk.Text(root, height=15, width=82, state="disabled",
-                           font=("Consolas", 9), bg="#1C1926", fg="#D7D3E0",
-                           relief="flat")
-        self.log.pack(padx=18, pady=12)
+        self.log = tk.Text(content, height=13, state="disabled",
+                           font=("Consolas", 9), bg=panel, fg="#D7D3E0",
+                           relief="flat", padx=12, pady=10,
+                           insertbackground="white", highlightthickness=0)
+        self.log.pack(fill="both", expand=True)
 
-        self.open_btn = tk.Button(root, text="📂  Abrir carpeta del resultado",
+        # --- Acciones secundarias ---
+        actions = tk.Frame(content, bg=bg)
+        actions.pack(fill="x", pady=(12, 0))
+
+        self.open_btn = tk.Button(actions, text="📂  Abrir carpeta",
                                   font=("Segoe UI", 11), state="disabled",
-                                  relief="flat", padx=10, pady=6, cursor="hand2",
+                                  bg=panel, fg="white", activebackground="#272334",
+                                  activeforeground="white", relief="flat",
+                                  padx=12, pady=8, cursor="hand2", bd=0,
                                   command=self.open_folder)
-        self.open_btn.pack(pady=(0, 6))
+        self.open_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
 
-        self.publish_btn = tk.Button(root, text="📲  Enviar al celular",
+        self.publish_btn = tk.Button(actions, text="📲  Enviar al celular",
                                      font=("Segoe UI", 11, "bold"), state="disabled",
-                                     bg="#1DB6A2", fg="white",
-                                     activebackground="#159E8C", relief="flat",
-                                     padx=12, pady=6, cursor="hand2",
+                                     bg=teal, fg="white",
+                                     activebackground="#159E8C",
+                                     activeforeground="white", relief="flat",
+                                     padx=12, pady=8, cursor="hand2", bd=0,
                                      command=self.publish)
-        self.publish_btn.pack(pady=(0, 6))
+        self.publish_btn.pack(side="left", expand=True, fill="x", padx=(6, 0))
 
-        self.update_btn = tk.Button(root, text="🔄  Actualizar app",
-                                    font=("Segoe UI", 9), fg="#B9B4C7",
-                                    bg="#12101A", activebackground="#12101A",
+        self.update_btn = tk.Button(content, text="🔄  Actualizar app",
+                                    font=("Segoe UI", 9), fg=muted,
+                                    bg=bg, activebackground=bg,
                                     activeforeground="white", relief="flat",
-                                    cursor="hand2", command=self.update_app)
-        self.update_btn.pack(pady=(0, 12))
+                                    cursor="hand2", bd=0, command=self.update_app)
+        self.update_btn.pack(pady=(10, 0))
 
         self.root.after(100, self._drain)
 
