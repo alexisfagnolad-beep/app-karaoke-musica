@@ -27,14 +27,22 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-STEMS = ("drums", "bass", "other", "vocals")
+# Pistas que genera cada modelo de Demucs.
+STEMS_BY_MODEL = {
+    "htdemucs": ("drums", "bass", "other", "vocals"),
+    # El modelo de 6 pistas separa además piano y guitarra.
+    "htdemucs_6s": ("drums", "bass", "other", "vocals", "piano", "guitar"),
+}
 
-# Instrumento -> (stem de Demucs, tipo de referencia, fmin del pitch).
+# Instrumento -> (stem de Demucs, tipo de referencia, fmin del pitch, modelo).
 INSTRUMENTS = {
-    "voz": ("vocals", "melody", 65.0),
-    "bateria": ("drums", "rhythm", 65.0),
-    "bajo": ("bass", "melody", 40.0),
-    "otros": ("other", "melody", 65.0),
+    "voz": ("vocals", "melody", 65.0, "htdemucs"),
+    "bateria": ("drums", "rhythm", 65.0, "htdemucs"),
+    "bajo": ("bass", "melody", 40.0, "htdemucs"),
+    "otros": ("other", "melody", 65.0, "htdemucs"),
+    # Piano y guitarra usan el modelo de 6 pistas (separación dedicada).
+    "piano": ("piano", "melody", 55.0, "htdemucs_6s"),
+    "guitarra": ("guitar", "melody", 80.0, "htdemucs_6s"),
 }
 
 
@@ -62,11 +70,11 @@ def _demucs_stem_dir(work_dir: Path, model: str, title: str) -> Path:
     return d
 
 
-def cached_stems(stems_dir: Path):
-    """Devuelve {stem: path} si están las 4 pistas en caché, si no None."""
+def cached_stems(stems_dir: Path, stems):
+    """Devuelve {stem: path} si están todas las pistas en caché, si no None."""
     if not stems_dir.exists():
         return None
-    paths = {s: stems_dir / f"{s}.wav" for s in STEMS}
+    paths = {s: stems_dir / f"{s}.wav" for s in stems}
     if all(p.exists() for p in paths.values()):
         return paths
     return None
@@ -92,11 +100,28 @@ def _sum_wavs(paths, out_path: Path) -> None:
     sf.write(str(out_path), mix, sr, subtype="PCM_16")
 
 
+def _stems_dir(project_dir: Path, model: str) -> Path:
+    # Caché por modelo (htdemucs y htdemucs_6s pueden convivir).
+    return project_dir / "stems" / model
+
+
+def locate_stems(project_dir: Path, model: str, stems):
+    """Busca las pistas en caché: primero por modelo, y como compatibilidad
+    el caché viejo plano (`stems/`) para htdemucs de 4 pistas."""
+    found = cached_stems(_stems_dir(project_dir, model), stems)
+    if found:
+        return found
+    if model == "htdemucs":
+        return cached_stems(project_dir / "stems", stems)
+    return None
+
+
 def ensure_stems(input_path: Path, project_dir: Path, model: str):
-    """Garantiza las 4 pistas en `project_dir/stems/`. Reusa el caché si ya
-    están; si no, corre Demucs una sola vez. Devuelve {stem: path}."""
-    stems_dir = project_dir / "stems"
-    existing = cached_stems(stems_dir)
+    """Garantiza las pistas del modelo en `project_dir/stems/<model>/`. Reusa
+    el caché si ya están; si no, corre Demucs una sola vez."""
+    stems = STEMS_BY_MODEL[model]
+    stems_dir = _stems_dir(project_dir, model)
+    existing = locate_stems(project_dir, model, stems)
     if existing:
         print("-> Uso la separación en caché (no vuelvo a correr Demucs).")
         return existing
@@ -105,13 +130,13 @@ def ensure_stems(input_path: Path, project_dir: Path, model: str):
     work_dir = project_dir / "_demucs"
     run_demucs(input_path, work_dir, model)
     src = _demucs_stem_dir(work_dir, model, input_path.stem)
-    for s in STEMS:
+    for s in stems:
         srcfile = src / f"{s}.wav"
         if not srcfile.exists():
             raise RuntimeError(f"Demucs no generó {s}.wav")
         shutil.copy(srcfile, stems_dir / f"{s}.wav")
     shutil.rmtree(work_dir, ignore_errors=True)
-    return {s: stems_dir / f"{s}.wav" for s in STEMS}
+    return {s: stems_dir / f"{s}.wav" for s in stems}
 
 
 def main() -> int:
@@ -131,17 +156,19 @@ def main() -> int:
                         help="Instrumento a practicar (por defecto: voz)")
     args = parser.parse_args()
 
-    stem_name, ref_kind, fmin = INSTRUMENTS[args.instrument]
+    stem_name, ref_kind, fmin, model = INSTRUMENTS[args.instrument]
+    stem_set = STEMS_BY_MODEL[model]
+    source_name = None
 
     if args.project:
         # Reprocesar otro instrumento desde el caché (sin audio de entrada).
         project_dir = Path(args.project).expanduser().resolve()
         title = project_dir.name
-        stems = cached_stems(project_dir / "stems")
+        stems = locate_stems(project_dir, model, stem_set)
         if not stems:
-            print("ERROR: este proyecto no tiene la separación en caché "
-                  "(stems/). Reprocesalo desde la canción original.",
-                  file=sys.stderr)
+            print(f"ERROR: este proyecto no tiene la separación de '{model}' "
+                  "en caché. Reprocesá el piano/guitarra desde la canción "
+                  "original (esos usan un modelo distinto).", file=sys.stderr)
             return 1
         print(f"Canción: {title}")
         print(f"Instrumento a practicar: {args.instrument}")
@@ -155,13 +182,14 @@ def main() -> int:
             print(f"ERROR: no encontré el archivo: {input_path}", file=sys.stderr)
             return 1
         title = input_path.stem
+        source_name = input_path.name
         project_dir = Path(args.out).expanduser().resolve() / title
         project_dir.mkdir(parents=True, exist_ok=True)
         print(f"Canción: {title}")
-        print(f"Instrumento a practicar: {args.instrument}")
+        print(f"Instrumento a practicar: {args.instrument} (modelo {model})")
         print(f"Proyecto: {project_dir}")
         try:
-            stems = ensure_stems(input_path, project_dir, args.model)
+            stems = ensure_stems(input_path, project_dir, model)
         except subprocess.CalledProcessError as exc:
             print(f"ERROR: Demucs falló (código {exc.returncode}).",
                   file=sys.stderr)
@@ -179,15 +207,15 @@ def main() -> int:
 
     # Instrumento aislado a analizar.
     shutil.copy(stems[stem_name], project_dir / "target.wav")
-    # Base = suma de las demás pistas.
+    # Base = suma de las demás pistas del mismo modelo.
     print(f"-> Armando la base (todo menos {args.instrument})...")
-    others = [stems[s] for s in STEMS if s != stem_name]
+    others = [stems[s] for s in stem_set if s != stem_name]
     _sum_wavs(others, project_dir / "instrumental.wav")
 
     meta = {
         "title": title,
-        "source": input_path.name,
-        "model": args.model,
+        "source": source_name,
+        "model": model,
         "instrument": args.instrument,
         "referenceKind": ref_kind,  # "melody" | "rhythm"
         "fmin": fmin,
@@ -206,8 +234,8 @@ def main() -> int:
     print(f"   Base (para tocar): {project_dir / 'instrumental.wav'}")
     print(f"   Instrumento:       {project_dir / 'target.wav'}")
     print(f"   Referencia:        {ref_kind}")
-    print("   (Las 4 pistas quedaron en caché: cambiar de instrumento será")
-    print("    casi instantáneo.)")
+    print("   (Las pistas quedaron en caché: cambiar de instrumento del mismo")
+    print("    modelo será casi instantáneo.)")
     return 0
 
 

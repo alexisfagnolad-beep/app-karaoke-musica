@@ -70,7 +70,9 @@ class KaraokeApp:
             "🎤  Voz (cantar)": "voz",
             "🥁  Batería (ritmo)": "bateria",
             "🎸  Bajo": "bajo",
-            "🎹  Otros (guitarra/teclado)": "otros",
+            "🎹  Piano": "piano",
+            "🎸  Guitarra": "guitarra",
+            "🎶  Otros (resto)": "otros",
         }
         self.instrument = tk.StringVar(value="🎤  Voz (cantar)")
 
@@ -309,7 +311,7 @@ class KaraokeApp:
         self._project_dirs = self._list_projects()
         self.proj_list.delete(0, "end")
         labels = {"voz": "Voz", "bateria": "Batería", "bajo": "Bajo",
-                  "otros": "Otros"}
+                  "piano": "Piano", "guitarra": "Guitarra", "otros": "Otros"}
         for d in self._project_dirs:
             title = d.name
             inst = ""
@@ -422,11 +424,12 @@ class KaraokeApp:
         return self._label_to_key.get(self.instrument.get(), "voz")
 
     def _is_cached(self, path: str) -> bool:
-        """True si la canción ya tiene las 4 pistas separadas en caché."""
-        stems = HERE / "proyectos" / Path(path).stem / "stems"
-        return stems.is_dir() and all(
-            (stems / f"{s}.wav").exists()
-            for s in ("drums", "bass", "other", "vocals"))
+        """True si la canción ya tiene alguna separación en caché."""
+        base = HERE / "proyectos" / Path(path).stem / "stems"
+        for d in (base, base / "htdemucs", base / "htdemucs_6s"):
+            if d.is_dir() and (d / "vocals.wav").exists():
+                return True
+        return False
 
     def choose(self):
         path = filedialog.askopenfilename(

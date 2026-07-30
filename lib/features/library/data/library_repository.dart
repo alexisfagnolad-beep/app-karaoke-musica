@@ -22,6 +22,7 @@ class LibraryRepository extends ChangeNotifier {
   static const List<String> instrumentsCatalog = [
     'Voz',
     'Guitarra',
+    'Piano',
     'Bajo',
     'Teclado',
     'Batería',

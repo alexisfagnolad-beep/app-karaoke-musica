@@ -164,6 +164,8 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
         "voz": "Voz",
         "bateria": "Batería",
         "bajo": "Bajo",
+        "piano": "Piano",
+        "guitarra": "Guitarra",
         "otros": "Otros",
     }.get(instrument, "Voz")
 
