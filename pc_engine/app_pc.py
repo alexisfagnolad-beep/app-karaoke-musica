@@ -110,6 +110,13 @@ class KaraokeApp:
                              command=self.choose)
         self.btn.pack(fill="x")
 
+        # Línea de estado: avisa si la canción ya está separada (caché).
+        self.status_var = tk.StringVar(value="")
+        self.status_lbl = tk.Label(
+            content, textvariable=self.status_var, font=("Segoe UI", 10),
+            fg=muted, bg=bg, anchor="w", justify="left")
+        self.status_lbl.pack(fill="x", pady=(10, 0))
+
         self.progress = ttk.Progressbar(
             content, mode="indeterminate",
             style="Karaoke.Horizontal.TProgressbar")
@@ -171,6 +178,13 @@ class KaraokeApp:
     def _instrument_key(self) -> str:
         return self._label_to_key.get(self.instrument.get(), "voz")
 
+    def _is_cached(self, path: str) -> bool:
+        """True si la canción ya tiene las 4 pistas separadas en caché."""
+        stems = HERE / "proyectos" / Path(path).stem / "stems"
+        return stems.is_dir() and all(
+            (stems / f"{s}.wav").exists()
+            for s in ("drums", "bass", "other", "vocals"))
+
     def choose(self):
         path = filedialog.askopenfilename(
             title="Elegí una canción",
@@ -179,6 +193,16 @@ class KaraokeApp:
         )
         if not path:
             return
+        if self._is_cached(path):
+            self.status_var.set(
+                "✓ Ya separada (caché): cambiar de instrumento es casi "
+                "instantáneo.")
+            self.status_lbl.configure(fg="#4AE3B5")
+        else:
+            self.status_var.set(
+                "🕒 Primera vez para esta canción: la separación puede "
+                "tardar unos minutos.")
+            self.status_lbl.configure(fg="#FFB74D")
         self.project = None
         self.btn.configure(state="disabled")
         self.open_btn.configure(state="disabled")
@@ -252,6 +276,10 @@ class KaraokeApp:
         if self.project is not None:
             self.open_btn.configure(state="normal")
             self.publish_btn.configure(state="normal")
+            # Ya quedó separada: el próximo instrumento será instantáneo.
+            self.status_var.set(
+                "✓ Separada y en caché: probá otro instrumento y sale al toque.")
+            self.status_lbl.configure(fg="#4AE3B5")
 
     def open_folder(self):
         if self.project is not None:
