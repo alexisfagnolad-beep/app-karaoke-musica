@@ -1,15 +1,15 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karaoke_musica/app.dart';
 
 void main() {
-  testWidgets('La app arranca en el inicio con las dos funciones',
-      (WidgetTester tester) async {
+  testWidgets('La app arranca en el inicio con sus tiles', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const KaraokeApp());
 
-    // Título del inicio y las dos opciones disponibles.
+    // Título del inicio y algunos tiles del menú principal.
     expect(find.text('Karaoke Música'), findsOneWidget);
-    expect(find.text('Afinación en vivo'), findsOneWidget);
-    expect(find.text('Reproducir un MP3'), findsOneWidget);
+    expect(find.text('Cantar'), findsOneWidget);
+    expect(find.text('Biblioteca'), findsOneWidget);
   });
 }
