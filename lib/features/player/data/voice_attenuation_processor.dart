@@ -51,8 +51,11 @@ class VoiceAttenuationProcessor {
   /// Estéreo: mid/side con preservación de graves. Mono: se copia (no hay
   /// canales para cancelar). Función pura (sin plugins): se testea en
   /// `flutter test`.
-  static void attenuateVoiceWav(File input, File output,
-      {required double strength}) {
+  static void attenuateVoiceWav(
+    File input,
+    File output, {
+    required double strength,
+  }) {
     final bytes = input.readAsBytesSync();
     final data = ByteData.sublistView(bytes);
 
@@ -121,14 +124,20 @@ class VoiceAttenuationProcessor {
     _writeWav(output, out.takeBytes(), sampleRate: sampleRate, channels: 2);
   }
 
-  static void _writeWav(File output, Uint8List pcm,
-      {required int sampleRate, required int channels}) {
+  static void _writeWav(
+    File output,
+    Uint8List pcm, {
+    required int sampleRate,
+    required int channels,
+  }) {
     final sink = output.openSync(mode: FileMode.write);
-    sink.writeFromSync(_wavHeader(
-      dataBytes: pcm.length,
-      sampleRate: sampleRate,
-      channels: channels,
-    ));
+    sink.writeFromSync(
+      _wavHeader(
+        dataBytes: pcm.length,
+        sampleRate: sampleRate,
+        channels: channels,
+      ),
+    );
     sink.writeFromSync(pcm);
     sink.closeSync();
   }

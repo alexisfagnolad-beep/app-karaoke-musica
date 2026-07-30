@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../data/pitch_detection_service.dart';
 import 'widgets/cents_meter.dart';
 import 'widgets/note_display.dart';
@@ -34,9 +35,10 @@ class _LivePitchScreenState extends State<LivePitchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Afinación en vivo'),
-        centerTitle: true,
+      appBar: gradientAppBar(
+        context,
+        'Afinación en vivo',
+        colors: const [AppColors.purple, AppColors.blue],
       ),
       body: SafeArea(
         child: AnimatedBuilder(
@@ -58,8 +60,7 @@ class _LivePitchScreenState extends State<LivePitchScreen> {
                       child: Text(
                         _service.error!,
                         style: TextStyle(
-                          color:
-                              Theme.of(context).colorScheme.onErrorContainer,
+                          color: Theme.of(context).colorScheme.onErrorContainer,
                         ),
                       ),
                     ),
@@ -70,9 +71,7 @@ class _LivePitchScreenState extends State<LivePitchScreen> {
                   const Spacer(),
                   FilledButton.icon(
                     onPressed: _toggle,
-                    icon: Icon(
-                      _service.isListening ? Icons.stop : Icons.mic,
-                    ),
+                    icon: Icon(_service.isListening ? Icons.stop : Icons.mic),
                     label: Text(
                       _service.isListening ? 'Detener' : 'Empezar a escuchar',
                     ),

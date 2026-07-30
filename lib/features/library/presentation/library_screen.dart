@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../../karaoke/domain/melody.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
 import '../../player/presentation/player_screen.dart';
@@ -174,9 +175,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Biblioteca'),
-        centerTitle: true,
+      appBar: gradientAppBar(
+        context,
+        'Biblioteca',
+        colors: const [AppColors.teal, AppColors.blue],
         actions: [
           PopupMenuButton<bool>(
             icon: const Icon(Icons.sort),

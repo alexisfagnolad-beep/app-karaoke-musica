@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../data/audio_file_service.dart';
 
 /// Pantalla del paso 3: abrir y reproducir un MP3 propio desde el celular,
@@ -49,7 +50,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final player = _service.player;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reproducir MP3'), centerTitle: true),
+      appBar: gradientAppBar(
+        context,
+        'Reproducir MP3',
+        colors: const [AppColors.orange, AppColors.pink],
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _service,
@@ -75,11 +80,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ),
                   const SizedBox(height: 8),
-                  Icon(
-                    Icons.music_note,
-                    size: 96,
-                    color: theme.colorScheme.primary
-                        .withValues(alpha: _service.hasFile ? 1 : 0.3),
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.orange, AppColors.pink],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.pink.withValues(alpha: 0.35),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.music_note,
+                      size: 72,
+                      color: Colors.white.withValues(
+                        alpha: _service.hasFile ? 1 : 0.5,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -134,10 +159,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
           SwitchListTile(
             secondary: const Icon(Icons.mic_off),
             title: const Text('Atenuar voz (modo fiesta)'),
-            subtitle: const Text('Calidad básica: baja la voz al instante, pero '
-                'puede sonar metálico. Para divertirse suele bastar dejarlo '
-                'apagado y cantar sobre la canción original. La separación '
-                'limpia llega con la versión de PC (Demucs).'),
+            subtitle: const Text(
+              'Calidad básica: baja la voz al instante, pero '
+              'puede sonar metálico. Para divertirse suele bastar dejarlo '
+              'apagado y cantar sobre la canción original. La separación '
+              'limpia llega con la versión de PC (Demucs).',
+            ),
             value: _service.voiceAttenuated,
             onChanged: (v) => _service.setVoiceAttenuated(v),
           ),
@@ -177,9 +204,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           children: [
             const Icon(Icons.music_note),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Tono (sin cambiar la velocidad)'),
-            ),
+            const Expanded(child: Text('Tono (sin cambiar la velocidad)')),
             IconButton.outlined(
               onPressed: n > -6 ? () => _service.setSemitones(n - 1) : null,
               icon: const Icon(Icons.remove),
@@ -230,10 +255,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_fmt(position)),
-                      Text(_fmt(total)),
-                    ],
+                    children: [Text(_fmt(position)), Text(_fmt(total))],
                   ),
                 ),
               ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
@@ -47,9 +48,10 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        centerTitle: true,
+      appBar: gradientAppBar(
+        context,
+        widget.title,
+        colors: const [AppColors.pink, AppColors.purple],
       ),
       body: SafeArea(
         child: AnimatedBuilder(
@@ -239,7 +241,6 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
 
   // ---------- Resultado ----------
   Widget _resultView() {
-    final theme = Theme.of(context);
     final score = _c.isRhythm
         ? _c.rhythmResult!.score
         : _c.melodicResult!.score;
@@ -263,18 +264,8 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Text(
-            score.toStringAsFixed(0),
-            style: theme.textTheme.displayLarge?.copyWith(
-              fontSize: 120,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          Text('puntos', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 32),
+          ScoreRing(score: score, label: label),
+          const SizedBox(height: 40),
           ...details,
           const SizedBox(height: 40),
           Row(

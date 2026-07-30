@@ -74,8 +74,9 @@ class UpdateService extends ChangeNotifier {
 
   Map<String, String> _ghHeaders({required bool binary, String token = ''}) {
     final headers = {
-      'Accept':
-          binary ? 'application/octet-stream' : 'application/vnd.github+json',
+      'Accept': binary
+          ? 'application/octet-stream'
+          : 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
       // GitHub rechaza con 403 las peticiones sin User-Agent.
       'User-Agent': 'karaoke-musica-app',
@@ -99,8 +100,10 @@ class UpdateService extends ChangeNotifier {
         headers: _ghHeaders(binary: false, token: token),
       );
       if (relRes.statusCode == 401 || relRes.statusCode == 403) {
-        _set(UpdateStatus.error,
-            'GitHub rechazó el token (${relRes.statusCode}). Revisá que sea válido y tenga permiso de lectura del repo.');
+        _set(
+          UpdateStatus.error,
+          'GitHub rechazó el token (${relRes.statusCode}). Revisá que sea válido y tenga permiso de lectura del repo.',
+        );
         return;
       }
       if (relRes.statusCode != 200) {
@@ -109,8 +112,7 @@ class UpdateService extends ChangeNotifier {
       }
 
       final rel = json.decode(relRes.body) as Map<String, dynamic>;
-      final assets =
-          (rel['assets'] as List).cast<Map<String, dynamic>>();
+      final assets = (rel['assets'] as List).cast<Map<String, dynamic>>();
 
       final apkAsset = assets.where((a) => a['name'] == apkAssetName);
       final versionAsset = assets.where((a) => a['name'] == versionAssetName);
@@ -122,13 +124,17 @@ class UpdateService extends ChangeNotifier {
       _apkAssetUrl = apkAsset.first['url'] as String;
 
       if (versionAsset.isEmpty) {
-        _set(UpdateStatus.error,
-            'La Release todavía no tiene version.json (esperá al próximo build).');
+        _set(
+          UpdateStatus.error,
+          'La Release todavía no tiene version.json (esperá al próximo build).',
+        );
         return;
       }
 
-      final versionBytes =
-          await _downloadAsset(versionAsset.first['url'] as String, token);
+      final versionBytes = await _downloadAsset(
+        versionAsset.first['url'] as String,
+        token,
+      );
       final versionData =
           json.decode(utf8.decode(versionBytes)) as Map<String, dynamic>;
       latestBuild = (versionData['buildNumber'] as num?)?.toInt();
@@ -139,11 +145,15 @@ class UpdateService extends ChangeNotifier {
       }
 
       if (latestBuild! > currentBuild) {
-        _set(UpdateStatus.available,
-            'Hay una versión nueva (build $latestBuild). Tenés la $currentBuild.');
+        _set(
+          UpdateStatus.available,
+          'Hay una versión nueva (build $latestBuild). Tenés la $currentBuild.',
+        );
       } else {
-        _set(UpdateStatus.upToDate,
-            'Ya tenés la última versión (build $currentBuild).');
+        _set(
+          UpdateStatus.upToDate,
+          'Ya tenés la última versión (build $currentBuild).',
+        );
       }
     } catch (e) {
       _set(UpdateStatus.error, 'Error al buscar actualización: $e');
@@ -214,7 +224,9 @@ class UpdateService extends ChangeNotifier {
   /// Authorization de GitHub a esa URL, porque S3 lo rechaza. Por eso seguimos
   /// el redirect a mano sin las credenciales.
   Future<http.StreamedResponse> _openAssetStream(
-      String assetApiUrl, String token) async {
+    String assetApiUrl,
+    String token,
+  ) async {
     final client = http.Client();
     final request = http.Request('GET', Uri.parse(assetApiUrl))
       ..followRedirects = false
@@ -222,7 +234,8 @@ class UpdateService extends ChangeNotifier {
 
     var response = await client.send(request);
 
-    final isRedirect = response.statusCode == 301 ||
+    final isRedirect =
+        response.statusCode == 301 ||
         response.statusCode == 302 ||
         response.statusCode == 307 ||
         response.statusCode == 308;

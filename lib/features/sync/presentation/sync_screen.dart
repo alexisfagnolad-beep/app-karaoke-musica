@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../../library/data/library_repository.dart';
 import '../data/sync_service.dart';
 
@@ -37,9 +38,10 @@ class _SyncScreenState extends State<SyncScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sincronizar con la PC'),
-        centerTitle: true,
+      appBar: gradientAppBar(
+        context,
+        'Sincronizar con la PC',
+        colors: const [AppColors.teal, AppColors.blue],
         actions: [
           IconButton(
             tooltip: 'Actualizar lista',

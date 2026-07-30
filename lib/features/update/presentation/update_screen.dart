@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../data/update_service.dart';
 
 /// Pantalla del actualizador integrado: configurar token, buscar versión
@@ -47,7 +48,11 @@ class _UpdateScreenState extends State<UpdateScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Actualizaciones'), centerTitle: true),
+      appBar: gradientAppBar(
+        context,
+        'Actualizaciones',
+        colors: const [AppColors.blue, AppColors.purple],
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _service,

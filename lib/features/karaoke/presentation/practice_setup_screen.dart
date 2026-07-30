@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/app_ui.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import 'karaoke_screen.dart';
@@ -92,9 +93,10 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Práctica con puntaje'),
-        centerTitle: true,
+      appBar: gradientAppBar(
+        context,
+        'Práctica con puntaje',
+        colors: const [AppColors.pink, AppColors.purple],
       ),
       body: SafeArea(
         child: ListView(
@@ -110,6 +112,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
             const SizedBox(height: 20),
             _pickTile(
               icon: Icons.music_note,
+              color: AppColors.orange,
               title: 'Instrumental',
               value: _instrumentalName,
               onTap: _pickInstrumental,
@@ -117,6 +120,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
             const SizedBox(height: 12),
             _pickTile(
               icon: Icons.timeline,
+              color: AppColors.teal,
               title: 'Referencia (.json)',
               value: _refName == null ? null : '$_refName  •  $mode',
               onTap: _pickReference,
@@ -142,20 +146,28 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
 
   Widget _pickTile({
     required IconData icon,
+    required Color color,
     required String title,
     required String? value,
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
+    final chosen = value != null;
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.18),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(title, style: theme.textTheme.titleMedium),
         subtitle: Text(value ?? 'Tocá para elegir'),
-        trailing: const Icon(Icons.folder_open),
+        trailing: Icon(
+          chosen ? Icons.check_circle : Icons.folder_open,
+          color: chosen ? AppColors.good : null,
+        ),
         onTap: onTap,
-        isThreeLine: false,
         subtitleTextStyle: theme.textTheme.bodySmall,
       ),
     );

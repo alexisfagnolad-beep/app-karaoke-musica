@@ -23,8 +23,8 @@ class CentsMeter extends StatelessWidget {
     final needleColor = !hasNote
         ? theme.colorScheme.onSurface.withValues(alpha: 0.2)
         : inTune
-            ? Colors.greenAccent
-            : theme.colorScheme.primary;
+        ? Colors.greenAccent
+        : theme.colorScheme.primary;
 
     return Column(
       children: [
@@ -39,7 +39,9 @@ class CentsMeter extends StatelessWidget {
                   Container(
                     height: 4,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.12,
+                      ),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
