@@ -56,9 +56,14 @@ jobs:
           cp ci/MainActivity.kt "$DEST"
           head -3 "$DEST"
 
-      - name: Inyectar permisos (micrófono + instalar APKs)
+      - name: Inyectar permisos (internet + micrófono + instalar APKs)
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
+          # INTERNET: Flutter solo lo agrega al manifest de debug; en release
+          # falta y la app no puede conectarse ("Failed host lookup").
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET" />\n    <application|' "$MANIFEST"
+          fi
           if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
             sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application|' "$MANIFEST"
           fi
