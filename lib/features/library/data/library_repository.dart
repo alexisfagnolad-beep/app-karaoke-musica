@@ -79,12 +79,20 @@ class LibraryRepository extends ChangeNotifier {
     required String title,
     String? genre,
     required List<String> instruments,
+    String? melodySourcePath,
   }) async {
     final media = await _mediaDir();
     final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'mp3';
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final dest = '${media.path}/$id.$ext';
     File(sourcePath).copySync(dest);
+
+    // Melodía de referencia opcional (para cantar con puntaje).
+    String? melodyDest;
+    if (melodySourcePath != null && File(melodySourcePath).existsSync()) {
+      melodyDest = '${media.path}/$id.melody.json';
+      File(melodySourcePath).copySync(melodyDest);
+    }
 
     songs.insert(
       0,
@@ -94,6 +102,7 @@ class LibraryRepository extends ChangeNotifier {
         path: dest,
         genre: genre,
         instruments: instruments,
+        melodyPath: melodyDest,
         addedAt: DateTime.now(),
       ),
     );
@@ -114,11 +123,29 @@ class LibraryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Copia una melodía de referencia [melodySourcePath] y la asocia a [song]
+  /// (para poder cantar con puntaje). Devuelve la canción actualizada.
+  Future<Song> attachMelody(Song song, String melodySourcePath) async {
+    if (!File(melodySourcePath).existsSync()) return song;
+    final media = await _mediaDir();
+    final dest = '${media.path}/${song.id}.melody.json';
+    File(melodySourcePath).copySync(dest);
+    final updated = song.copyWith(melodyPath: dest);
+    final i = songs.indexWhere((s) => s.id == song.id);
+    if (i >= 0) songs[i] = updated;
+    await _save();
+    notifyListeners();
+    return updated;
+  }
+
   Future<void> deleteSong(Song song) async {
-    try {
-      final f = File(song.path);
-      if (f.existsSync()) f.deleteSync();
-    } catch (_) {}
+    for (final p in [song.path, song.melodyPath]) {
+      if (p == null) continue;
+      try {
+        final f = File(p);
+        if (f.existsSync()) f.deleteSync();
+      } catch (_) {}
+    }
     songs.removeWhere((s) => s.id == song.id);
     await _save();
     notifyListeners();

@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../karaoke/domain/melody.dart';
+import '../../karaoke/presentation/karaoke_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../data/library_repository.dart';
 import '../domain/song.dart';
@@ -63,6 +67,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       clearGenre: data.genre == null,
       instruments: data.instruments,
     ));
+    // Si eligieron una melodía de referencia en la edición, la asociamos.
+    if (data.melodyPath != null) {
+      await _repo.attachMelody(song, data.melodyPath!);
+    }
   }
 
   Future<void> _addSong() async {
@@ -84,12 +92,73 @@ class _LibraryScreenState extends State<LibraryScreen> {
       title: data.title,
       genre: data.genre,
       instruments: data.instruments,
+      melodySourcePath: data.melodyPath,
     );
   }
 
+  /// Al tocar una canción: si tiene melodía de referencia, ofrecemos cantar con
+  /// puntaje o solo reproducir; si no, abrimos el reproductor directo.
   void _openSong(Song song) {
+    if (!song.canScore) {
+      _play(song);
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.stars, color: Color(0xFFE0457B)),
+              title: const Text('Cantar con puntaje'),
+              subtitle: const Text('Cantá sobre la pista y recibí un puntaje.'),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _sing(song);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: const Text('Reproducir'),
+              subtitle: const Text('Solo escuchar la canción.'),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _play(song);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _play(Song song) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PlayerScreen(initialPath: song.path, initialName: song.title),
+    ));
+  }
+
+  void _sing(Song song) {
+    final path = song.melodyPath;
+    if (path == null) return;
+    Melody melody;
+    try {
+      melody = Melody.parse(File(path).readAsStringSync());
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pude leer la melodía de referencia.')),
+      );
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => KaraokeScreen(
+        instrumentalPath: song.path,
+        title: song.title,
+        melody: melody,
+      ),
     ));
   }
 
@@ -222,14 +291,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _songTile(Song song) {
-    final subtitle = [
+    final tags = [
       if (song.genre != null) song.genre!,
       if (song.instruments.isNotEmpty) song.instruments.join(', '),
     ].join('  •  ');
+    final subtitleText = [
+      if (song.canScore) 'Con puntaje',
+      if (tags.isNotEmpty) tags,
+    ].join('  •  ');
     return ListTile(
-      leading: const Icon(Icons.music_note),
+      leading: CircleAvatar(
+        backgroundColor: song.canScore
+            ? const Color(0xFFE0457B).withValues(alpha: 0.15)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Icon(
+          song.canScore ? Icons.stars : Icons.music_note,
+          color: song.canScore
+              ? const Color(0xFFE0457B)
+              : Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
       title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: subtitle.isEmpty ? null : Text(subtitle),
+      subtitle: subtitleText.isEmpty
+          ? null
+          : Text(subtitleText, maxLines: 1, overflow: TextOverflow.ellipsis),
       onTap: () => _openSong(song),
       trailing: PopupMenuButton<String>(
         onSelected: (v) {
@@ -288,10 +373,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 }
 
 class _NewSongData {
-  _NewSongData(this.title, this.genre, this.instruments);
+  _NewSongData(this.title, this.genre, this.instruments, this.melodyPath);
   final String title;
   final String? genre;
   final List<String> instruments;
+
+  /// Ruta al `melody.json` elegido (opcional), para cantar con puntaje.
+  final String? melodyPath;
 }
 
 /// Hoja inferior para cargar título, género e instrumentos de una canción.
@@ -318,7 +406,24 @@ class _AddSongSheetState extends State<_AddSongSheet> {
   late String? _genre = widget.existing?.genre;
   late final Set<String> _instruments = {...?widget.existing?.instruments};
 
+  /// `melody.json` recién elegido en esta hoja (ruta de origen).
+  String? _melodyPath;
+
   bool get _isEditing => widget.existing != null;
+
+  /// true si ya hay melodía: la que traía la canción o una recién elegida.
+  bool get _hasMelody =>
+      _melodyPath != null || widget.existing?.canScore == true;
+
+  Future<void> _pickMelody() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    final path = result?.files.single.path;
+    if (path == null) return;
+    setState(() => _melodyPath = path);
+  }
 
   @override
   void dispose() {
@@ -418,6 +523,35 @@ class _AddSongSheetState extends State<_AddSongSheet> {
                   ),
               ],
             ),
+            const SizedBox(height: 20),
+            const Text('Melodía de referencia (opcional)'),
+            const SizedBox(height: 4),
+            Text(
+              'Es el archivo melody.json que genera la PC. Si lo agregás, vas a '
+              'poder "Cantar con puntaje" directo desde la biblioteca.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                  ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _pickMelody,
+              icon: Icon(_hasMelody ? Icons.check_circle : Icons.stars),
+              label: Text(
+                _melodyPath != null
+                    ? 'Melodía elegida ✓'
+                    : (widget.existing?.canScore == true
+                        ? 'Reemplazar melodía'
+                        : 'Elegir melody.json'),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: _hasMelody ? const Color(0xFFE0457B) : null,
+              ),
+            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -433,7 +567,8 @@ class _AddSongSheetState extends State<_AddSongSheet> {
                   }
                   Navigator.pop(
                     context,
-                    _NewSongData(title, _genre, _instruments.toList()),
+                    _NewSongData(
+                        title, _genre, _instruments.toList(), _melodyPath),
                   );
                 },
                 child: Text(_isEditing
