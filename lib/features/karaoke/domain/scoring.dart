@@ -58,7 +58,7 @@ double octaveFoldedDiff(double sungMidi, int targetMidi) {
 KaraokeResult scorePerformance(
   Melody melody,
   List<PerformanceSample> samples, {
-  double tolerance = 2.0,
+  double tolerance = 2.5,
 }) {
   if (samples.isEmpty || !melody.hasVoice) return KaraokeResult.empty;
 
