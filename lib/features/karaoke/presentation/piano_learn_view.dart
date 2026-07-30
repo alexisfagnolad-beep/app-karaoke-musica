@@ -277,6 +277,15 @@ class _LearnPainter extends CustomPainter {
       if (active) {
         canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.55));
       }
+      // El aprendiz tocó ESTA tecla: verde festivo si es la correcta.
+      final played = sung == midi;
+      final correct = played && activeMidi == midi;
+      if (correct) {
+        canvas.drawRect(
+          rect,
+          Paint()..color = const Color(0xFF4AE3B5).withValues(alpha: 0.65),
+        );
+      }
       _text(
         canvas,
         _solfege[midi % 12] ?? '',
@@ -284,13 +293,15 @@ class _LearnPainter extends CustomPainter {
         Colors.white,
         (whiteW * 0.32).clamp(11.0, 20.0),
       );
-      if (sung == midi) {
+      if (played) {
         canvas.drawRect(
           rect,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 3
-            ..color = const Color(0xFF4AE3B5),
+            ..strokeWidth = correct ? 5 : 3
+            ..color = correct
+                ? const Color(0xFF2FD9A8)
+                : const Color(0xFFFFB74D),
         );
       }
     }
@@ -308,10 +319,26 @@ class _LearnPainter extends CustomPainter {
         bottomLeft: const Radius.circular(5),
         bottomRight: const Radius.circular(5),
       );
+      final played = sung == m;
+      final correct = played && active;
       canvas.drawRRect(
         rr,
-        Paint()..color = active ? color : Color.lerp(color, Colors.black, 0.5)!,
+        Paint()
+          ..color = correct
+              ? const Color(0xFF4AE3B5)
+              : (active ? color : Color.lerp(color, Colors.black, 0.5)!),
       );
+      if (played) {
+        canvas.drawRRect(
+          rr,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = correct ? 4 : 3
+            ..color = correct
+                ? const Color(0xFF2FD9A8)
+                : const Color(0xFFFFB74D),
+        );
+      }
     }
   }
 

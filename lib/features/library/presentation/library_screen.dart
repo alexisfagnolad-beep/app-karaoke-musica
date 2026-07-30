@@ -147,6 +147,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             if (!song.isRhythm)
               ListTile(
+                leading: const Icon(Icons.piano, color: Color(0xFF1DB6A2)),
+                title: const Text('Aprender en piano'),
+                subtitle: const Text(
+                  'Tocá la melodía principal en tu piano (teclado de colores).',
+                ),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _learnPiano(song);
+                },
+              ),
+            if (!song.isRhythm)
+              ListTile(
                 leading: const Icon(Icons.lyrics, color: Color(0xFF4D9BFF)),
                 title: const Text('Solo letra'),
                 subtitle: const Text(
@@ -178,6 +190,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
       MaterialPageRoute(
         builder: (_) =>
             PlayerScreen(initialPath: song.path, initialName: song.title),
+      ),
+    );
+  }
+
+  /// Abre la canción en el piano (teclado de colores) para tocar su melodía
+  /// principal, sea de voz o de instrumento.
+  void _learnPiano(Song song) {
+    if (song.melodyPath == null) return;
+    Melody melody;
+    try {
+      melody = Melody.parse(File(song.melodyPath!).readAsStringSync());
+    } catch (_) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No pude leer la melodía.')));
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PianoLearnScreen(
+          instrumentalPath: song.path,
+          title: song.title,
+          melody: melody,
+        ),
       ),
     );
   }

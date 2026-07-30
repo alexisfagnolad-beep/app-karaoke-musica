@@ -78,6 +78,20 @@ class KaraokeController extends ChangeNotifier {
   /// batería). -1 si todavía no golpeó.
   double lastUserHitT = -1;
 
+  /// Velocidad de reproducción (1.0 = normal). Bajarla ayuda a aprender; como
+  /// todo se sincroniza con la posición del reproductor, las barras/notas
+  /// siguen alineadas con el audio.
+  double tempo = 1.0;
+
+  /// Cambia el tempo (0.5..1.0). El tono se mantiene (no suena grave).
+  Future<void> setTempo(double value) async {
+    tempo = value.clamp(0.5, 1.0);
+    try {
+      await player.setSpeed(tempo);
+    } catch (_) {}
+    notifyListeners();
+  }
+
   bool get running => _running;
   String? get error => _error;
   MusicalNote? get sung => _sung;
@@ -176,6 +190,7 @@ class KaraokeController extends ChangeNotifier {
       try {
         _running = true;
         await player.seek(Duration.zero);
+        await player.setSpeed(tempo);
         player.play();
         notifyListeners();
       } catch (e) {
@@ -205,6 +220,7 @@ class KaraokeController extends ChangeNotifier {
       );
       _running = true;
       await player.seek(Duration.zero);
+      await player.setSpeed(tempo);
       player.play();
       notifyListeners();
     } catch (e) {

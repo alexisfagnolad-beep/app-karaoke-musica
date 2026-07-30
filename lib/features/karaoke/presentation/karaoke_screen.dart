@@ -10,6 +10,7 @@ import 'lyrics_view.dart';
 import 'piano_roll_view.dart';
 import 'pitch_roll_view.dart';
 import 'stage_screen.dart';
+import 'tempo_button.dart';
 
 /// Pantalla de práctica con puntaje: reproduce el instrumental, muestra la guía
 /// en vivo (nota objetivo vs tu nota, o los golpes) y al final el puntaje.
@@ -76,6 +77,7 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         widget.title,
         colors: const [AppColors.pink, AppColors.purple],
         actions: [
+          TempoButton(controller: _c),
           if (widget.melody != null)
             IconButton(
               tooltip: _pianoView ? 'Ver barras' : 'Ver piano',

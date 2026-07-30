@@ -5,6 +5,7 @@ import '../../../shared/ui/app_ui.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/melody.dart';
 import 'piano_learn_view.dart';
+import 'tempo_button.dart';
 
 /// Pantalla de piano estilo Yousician: horizontal, a pantalla completa, con
 /// pentagrama arriba y teclado de colores abajo. Comparte la lógica del
@@ -91,6 +92,7 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
                     ),
                   ),
                 ),
+                TempoButton(controller: _c, dark: true),
                 if (_c.running)
                   Text(
                     '${_c.liveScore} pts',

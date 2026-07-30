@@ -5,6 +5,7 @@ import '../../../shared/ui/app_ui.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/rhythm.dart';
 import 'drum_learn_view.dart';
+import 'tempo_button.dart';
 
 /// Pantalla de batería estilo Guitar Hero: horizontal, a pantalla completa,
 /// con carriles que caen a una batería dibujada que se ilumina al golpear.
@@ -89,6 +90,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                     ),
                   ),
                 ),
+                TempoButton(controller: _c, dark: true),
                 Text(
                   'Golpes: ${_c.hits}',
                   style: const TextStyle(
