@@ -8,6 +8,7 @@ import '../../../shared/ui/app_ui.dart';
 import '../../karaoke/domain/lyrics.dart';
 import '../../karaoke/domain/melody.dart';
 import '../../karaoke/domain/rhythm.dart';
+import '../../karaoke/presentation/drum_learn_screen.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
 import '../../karaoke/presentation/piano_learn_screen.dart';
 import '../../player/presentation/player_screen.dart';
@@ -203,6 +204,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No pude leer la referencia de puntaje.')),
+      );
+      return;
+    }
+    // Batería: pantalla dedicada estilo Guitar Hero (horizontal).
+    if (rhythm != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DrumLearnScreen(
+            instrumentalPath: song.path,
+            title: song.title,
+            rhythm: rhythm!,
+          ),
+        ),
       );
       return;
     }
