@@ -6,10 +6,18 @@ import '../domain/lyrics.dart';
 /// Muestra la letra sincronizada debajo de las barras: la línea actual con la
 /// palabra que va sonando resaltada, y abajo la línea que viene.
 class LyricsView extends StatefulWidget {
-  const LyricsView({super.key, required this.controller, required this.lyrics});
+  const LyricsView({
+    super.key,
+    required this.controller,
+    required this.lyrics,
+    this.big = false,
+  });
 
   final KaraokeController controller;
   final Lyrics lyrics;
+
+  /// Versión grande para el Modo Escenario (proyección).
+  final bool big;
 
   @override
   State<LyricsView> createState() => _LyricsViewState();
@@ -40,7 +48,7 @@ class _LyricsViewState extends State<LyricsView>
       builder: (context, _) {
         final pos = widget.controller.player.position.inMilliseconds / 1000.0;
         final idx = widget.lyrics.lineIndexAt(pos);
-        if (idx == null) return const SizedBox(height: 76);
+        if (idx == null) return SizedBox(height: widget.big ? 140 : 76);
 
         final line = widget.lyrics.lines[idx];
         final active = pos >= line.start && pos <= line.end;
@@ -49,18 +57,22 @@ class _LyricsViewState extends State<LyricsView>
             : null;
 
         return SizedBox(
-          height: 76,
+          height: widget.big ? 140 : 76,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildLine(line, pos, active, bright, dim, accent, theme),
               if (next != null) ...[
-                const SizedBox(height: 6),
+                SizedBox(height: widget.big ? 12 : 6),
                 Text(
                   next.text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: dim),
+                  style:
+                      (widget.big
+                              ? theme.textTheme.titleLarge
+                              : theme.textTheme.bodyMedium)
+                          ?.copyWith(color: dim),
                 ),
               ],
             ],
@@ -79,9 +91,9 @@ class _LyricsViewState extends State<LyricsView>
     Color accent,
     ThemeData theme,
   ) {
-    final baseStyle = theme.textTheme.titleLarge?.copyWith(
-      fontWeight: FontWeight.bold,
-    );
+    final baseStyle =
+        (widget.big ? theme.textTheme.displaySmall : theme.textTheme.titleLarge)
+            ?.copyWith(fontWeight: FontWeight.bold);
 
     // Sin palabras con tiempo: mostramos la línea entera.
     if (line.words.isEmpty) {

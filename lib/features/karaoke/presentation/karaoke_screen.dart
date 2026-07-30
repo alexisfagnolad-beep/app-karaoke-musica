@@ -7,6 +7,7 @@ import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import 'lyrics_view.dart';
 import 'pitch_roll_view.dart';
+import 'stage_screen.dart';
 
 /// Pantalla de práctica con puntaje: reproduce el instrumental, muestra la guía
 /// en vivo (nota objetivo vs tu nota, o los golpes) y al final el puntaje.
@@ -64,6 +65,22 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         context,
         widget.title,
         colors: const [AppColors.pink, AppColors.purple],
+        actions: [
+          if (widget.melody != null)
+            IconButton(
+              tooltip: 'Modo escenario (proyectar)',
+              icon: const Icon(Icons.cast),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StageScreen(
+                    controller: _c,
+                    title: widget.title,
+                    lyrics: widget.lyrics,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: AnimatedBuilder(
