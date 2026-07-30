@@ -88,6 +88,38 @@ class KaraokeController extends ChangeNotifier {
   /// como guía, pero SIN micrófono ni puntaje.
   bool freeMode = false;
 
+  /// Dificultad: 0 = Fácil (barras muy resumidas), 1 = Normal, 2 = Exigente
+  /// (sigue la melodía más de cerca). Cambia cuánto se simplifica la línea.
+  int difficulty = 1;
+  static const List<double> _diffMinDur = [0.30, 0.14, 0.09];
+  static const List<double> _diffThresh = [1.0, 0.8, 0.6];
+  static const List<int> _diffSmooth = [11, 9, 5];
+  static const List<double> _diffMaxGap = [0.40, 0.35, 0.30];
+
+  void _rebuildNotes() {
+    final m = _melody;
+    if (m == null) {
+      notes = const [];
+      noteLit = const [];
+      return;
+    }
+    notes = m.notes(
+      minDuration: _diffMinDur[difficulty],
+      changeThreshold: _diffThresh[difficulty],
+      smoothWindow: _diffSmooth[difficulty],
+      maxGap: _diffMaxGap[difficulty],
+    );
+    noteLit = List<double>.filled(notes.length, 0);
+  }
+
+  /// Cambia la dificultad (rehace las barras). Solo cuando no está corriendo.
+  void setDifficulty(int level) {
+    if (_running) return;
+    difficulty = level.clamp(0, 2);
+    _rebuildNotes();
+    notifyListeners();
+  }
+
   Future<void> loadMelodic(
     String instrumentalPath,
     Melody melody, {
@@ -96,8 +128,7 @@ class KaraokeController extends ChangeNotifier {
     _melody = melody;
     _rhythm = null;
     this.freeMode = freeMode;
-    notes = melody.notes();
-    noteLit = List<double>.filled(notes.length, 0);
+    _rebuildNotes();
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
     player.playerStateStream.listen(_onPlayerState);
   }

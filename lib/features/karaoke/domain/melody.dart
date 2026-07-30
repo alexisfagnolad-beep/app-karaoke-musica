@@ -83,13 +83,15 @@ class Melody {
   ///
   /// Para que las barras sean fáciles de cantar (es un juego), la referencia
   /// se limpia antes de agrupar:
-  ///  1. Corrige saltos de octava (errores típicos del detector de tono).
-  ///  2. Suaviza con un filtro de mediana (mata el jitter cuadro a cuadro).
-  ///  3. Une tramos con la misma nota puenteando huecos → barras más largas.
+  ///  1. Suaviza con un filtro de mediana (mata el jitter y picos de octava).
+  ///  2. Segmenta por histéresis (notas largas, silueta amable).
+  ///  3. "Resume": absorbe las notas cortas (corridas rápidas) en las vecinas.
   ///
-  /// [minDuration]: duración mínima (seg) de una nota (descarta jitter).
+  /// [minDuration]: por debajo de esto una nota se absorbe en su vecina.
   /// [maxGap]: hueco máximo (seg) que se "puentea" dentro de una misma nota.
   /// [smoothWindow]: ventana (en cuadros) del filtro de mediana (impar).
+  /// [changeThreshold]: semitonos que la melodía debe alejarse para cambiar de
+  /// nota (más alto = barras más resumidas / fáciles).
   List<MelodyNote> notes({
     double minDuration = 0.12,
     double maxGap = 0.35,
@@ -109,21 +111,10 @@ class Melody {
     }
     if (vm.isEmpty) return const [];
 
-    // 2) Corrección de saltos de octava por continuidad.
-    var prev = _median(List<double>.of(vm));
-    for (var i = 0; i < vm.length; i++) {
-      var m = vm[i];
-      while (m - prev > 6) {
-        m -= 12;
-      }
-      while (prev - m > 6) {
-        m += 12;
-      }
-      vm[i] = m;
-      prev = m;
-    }
-
-    // 3) Suavizado fuerte por mediana (mata el temblor cuadro a cuadro).
+    // 2) Suavizado fuerte por mediana (mata el temblor y los picos de 1-2
+    //    cuadros, incluidos los errores de octava momentáneos del detector).
+    //    No forzamos octava por continuidad: corrompía saltos musicales reales
+    //    (quintas/sextas) y, como el puntaje pliega octavas, no hace falta.
     final sm = <double>[];
     final half = smoothWindow ~/ 2;
     for (var i = 0; i < vm.length; i++) {
@@ -143,11 +134,11 @@ class Melody {
     void close(int endIdx) {
       if (vals.isEmpty) return;
       final midi = _median(vals).round();
-      final start = vt[segStart];
-      final end = vt[endIdx] + dt;
-      if (end - start >= minDuration) {
-        result.add(MelodyNote(startT: start, endT: end, midi: midi));
-      }
+      // No descartamos por duración acá: la simplificación (paso 6) absorbe
+      // las notas cortas en sus vecinas, sin dejar huecos.
+      result.add(
+        MelodyNote(startT: vt[segStart], endT: vt[endIdx] + dt, midi: midi),
+      );
     }
 
     for (var i = 1; i < sm.length; i++) {
@@ -163,9 +154,23 @@ class Melody {
     }
     close(sm.length - 1);
 
-    // 5) Unir notas vecinas de la misma altura (por si quedó jitter en el borde).
+    // 5) Unir notas vecinas de la misma altura.
+    var notes = _mergeSamePitch(result, maxGap);
+
+    // 6) Simplificar ("resumir"): absorbemos las notas más cortas que
+    //    [minDuration] en la vecina más cercana en altura, para que las
+    //    corridas rápidas y los adornos no hagan la canción injugable.
+    notes = _absorbShort(notes, minDuration);
+    notes = _mergeSamePitch(notes, maxGap);
+    return notes;
+  }
+
+  static List<MelodyNote> _mergeSamePitch(
+    List<MelodyNote> notes,
+    double maxGap,
+  ) {
     final merged = <MelodyNote>[];
-    for (final n in result) {
+    for (final n in notes) {
       if (merged.isNotEmpty &&
           merged.last.midi == n.midi &&
           n.startT - merged.last.endT <= maxGap) {
@@ -178,6 +183,50 @@ class Melody {
       }
     }
     return merged;
+  }
+
+  /// Absorbe las notas más cortas que [minDur] en la vecina más cercana en
+  /// altura (extendiéndola sobre el tiempo de la corta). No deja huecos.
+  static List<MelodyNote> _absorbShort(List<MelodyNote> notes, double minDur) {
+    if (notes.length < 2) return notes;
+    final list = List<MelodyNote>.of(notes);
+    var guard = 0;
+    while (list.length > 1 && guard++ < 5000) {
+      // Nota más corta por debajo del umbral.
+      var idx = -1;
+      var shortest = minDur;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].duration < shortest) {
+          shortest = list[i].duration;
+          idx = i;
+        }
+      }
+      if (idx == -1) break;
+
+      // Vecina a la que la absorbemos: la más cercana en altura.
+      int nb;
+      if (idx == 0) {
+        nb = 1;
+      } else if (idx == list.length - 1) {
+        nb = idx - 1;
+      } else {
+        final dPrev = (list[idx - 1].midi - list[idx].midi).abs();
+        final dNext = (list[idx + 1].midi - list[idx].midi).abs();
+        nb = dPrev <= dNext ? idx - 1 : idx + 1;
+      }
+      final cur = list[idx];
+      final other = list[nb];
+      final start = cur.startT < other.startT ? cur.startT : other.startT;
+      final end = cur.endT > other.endT ? cur.endT : other.endT;
+      final combined = MelodyNote(startT: start, endT: end, midi: other.midi);
+      // Reemplazamos ambas por la combinada.
+      final lo = idx < nb ? idx : nb;
+      final hi = idx < nb ? nb : idx;
+      list.removeAt(hi);
+      list.removeAt(lo);
+      list.insert(lo, combined);
+    }
+    return list;
   }
 
   static double _median(List<double> xs) {

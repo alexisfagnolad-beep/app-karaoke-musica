@@ -67,6 +67,36 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         colors: const [AppColors.pink, AppColors.purple],
         actions: [
           if (widget.melody != null)
+            PopupMenuButton<int>(
+              tooltip: 'Dificultad',
+              icon: const Icon(Icons.tune),
+              onSelected: (v) {
+                if (_c.running) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Pará la canción para cambiar la dificultad.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                _c.setDifficulty(v);
+              },
+              itemBuilder: (_) => [
+                for (final e in const [
+                  [0, 'Fácil', 'Barras bien resumidas'],
+                  [1, 'Normal', 'Equilibrado'],
+                  [2, 'Exigente', 'Sigue la melodía de cerca'],
+                ])
+                  CheckedPopupMenuItem(
+                    value: e[0] as int,
+                    checked: _c.difficulty == e[0],
+                    child: Text('${e[1]}  ·  ${e[2]}'),
+                  ),
+              ],
+            ),
+          if (widget.melody != null)
             IconButton(
               tooltip: 'Modo escenario (proyectar)',
               icon: const Icon(Icons.cast),
