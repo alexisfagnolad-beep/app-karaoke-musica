@@ -13,7 +13,9 @@ class TempoButton extends StatelessWidget {
   final bool dark;
 
   static const List<double> _speeds = [1.0, 0.75, 0.5];
-  static const Map<double, String> _labels = {
+
+  // No puede ser const: un Map con claves double no tiene "primitive equality".
+  static final Map<double, String> _labels = {
     1.0: 'Normal (1x)',
     0.75: 'Lento (0.75x)',
     0.5: 'Muy lento (0.5x)',
