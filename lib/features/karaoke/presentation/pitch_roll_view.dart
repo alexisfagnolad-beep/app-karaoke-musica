@@ -5,6 +5,17 @@ import 'package:flutter/material.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/scoring.dart';
 
+// Nombres Do-Re-Mi por clase de nota (solo blancas; el resto va sin nombre).
+const Map<int, String> _solfege = {
+  0: 'Do',
+  2: 'Re',
+  4: 'Mi',
+  5: 'Fa',
+  7: 'Sol',
+  9: 'La',
+  11: 'Si',
+};
+
 /// Vista tipo karaoke (SingStar): la línea melódica dibujada como barras que
 /// se desplazan de derecha a izquierda. Cuando cantás sobre la barra, se
 /// ilumina; si desafinás, tu voz aparece como una barrita más tenue arriba
@@ -183,6 +194,12 @@ class _PitchRollPainter extends CustomPainter {
             ..color = glow,
         );
       }
+
+      // Nombre de la nota (Do-Re-Mi) sobre la barra, si entra.
+      final name = _solfege[n.midi % 12];
+      if (name != null && (x1 - x0) > 22 && barH >= 13) {
+        _label(canvas, name, Offset((x0 + x1) / 2, y), barH);
+      }
     }
 
     // Línea "ahora".
@@ -218,6 +235,24 @@ class _PitchRollPainter extends CustomPainter {
         Paint()..color = color,
       );
     }
+  }
+
+  void _label(Canvas canvas, String s, Offset center, double barH) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: s,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.9),
+          fontSize: (barH * 0.72).clamp(9.0, 14.0),
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - tp.height / 2),
+    );
   }
 
   @override

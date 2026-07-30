@@ -4,6 +4,7 @@ import '../../library/data/library_repository.dart';
 import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../../shared/ui/mascot.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../sync/data/sync_service.dart';
 import '../../update/data/update_service.dart';
@@ -255,12 +256,12 @@ class _Header extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.graphic_eq, color: Colors.white, size: 32),
+            child: const MascotFace(size: 44),
           ),
           const SizedBox(width: 16),
           Expanded(

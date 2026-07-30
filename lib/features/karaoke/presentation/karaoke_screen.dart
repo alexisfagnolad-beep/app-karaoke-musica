@@ -250,23 +250,23 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
 
     if (!_c.running) {
       icon = Icons.multitrack_audio;
-      text = 'Cantá sobre las barras';
+      text = '¡Preparate! 🎤';
       color = theme.colorScheme.onSurface.withValues(alpha: 0.6);
     } else if (_c.livePitch == null) {
       icon = Icons.mic_none;
-      text = 'Sin voz';
+      text = '¡Cantá! 🎤';
       color = theme.colorScheme.onSurface.withValues(alpha: 0.5);
     } else if (_c.direction == 0) {
       icon = Icons.check_circle;
-      text = 'Afinado';
+      text = '¡Buenísimo! 😃';
       color = const Color(0xFF4AE3B5);
     } else if (_c.direction > 0) {
-      icon = Icons.keyboard_arrow_up;
-      text = 'Agudo';
+      icon = Icons.keyboard_arrow_down;
+      text = 'Bajá un poquito';
       color = const Color(0xFFFFB74D);
     } else {
-      icon = Icons.keyboard_arrow_down;
-      text = 'Grave';
+      icon = Icons.keyboard_arrow_up;
+      text = 'Subí un poquito';
       color = const Color(0xFFFFB74D);
     }
 
