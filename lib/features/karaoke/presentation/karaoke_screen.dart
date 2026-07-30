@@ -6,6 +6,7 @@ import '../domain/lyrics.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import 'lyrics_view.dart';
+import 'piano_roll_view.dart';
 import 'pitch_roll_view.dart';
 import 'stage_screen.dart';
 
@@ -20,6 +21,7 @@ class KaraokeScreen extends StatefulWidget {
     this.rhythm,
     this.lyrics,
     this.freeMode = false,
+    this.pianoView = false,
   });
 
   final String instrumentalPath;
@@ -31,12 +33,17 @@ class KaraokeScreen extends StatefulWidget {
   /// Modo "Solo letra": reproduce con barras y letra, sin micrófono ni puntaje.
   final bool freeMode;
 
+  /// Arranca en la vista didáctica de piano (teclado de colores) en vez de las
+  /// barras. Igual se puede alternar con el botón.
+  final bool pianoView;
+
   @override
   State<KaraokeScreen> createState() => _KaraokeScreenState();
 }
 
 class _KaraokeScreenState extends State<KaraokeScreen> {
   final KaraokeController _c = KaraokeController();
+  late bool _pianoView = widget.pianoView;
 
   @override
   void initState() {
@@ -66,6 +73,12 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         widget.title,
         colors: const [AppColors.pink, AppColors.purple],
         actions: [
+          if (widget.melody != null)
+            IconButton(
+              tooltip: _pianoView ? 'Ver barras' : 'Ver piano',
+              icon: Icon(_pianoView ? Icons.bar_chart : Icons.piano),
+              onPressed: () => setState(() => _pianoView = !_pianoView),
+            ),
           if (widget.melody != null)
             PopupMenuButton<int>(
               tooltip: 'Dificultad',
@@ -150,9 +163,14 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
           Expanded(
             child: _c.isRhythm
                 ? Center(child: _rhythmLive())
-                : PitchRollView(controller: _c),
+                : (_pianoView
+                      ? PianoRollView(controller: _c)
+                      : PitchRollView(controller: _c)),
           ),
-          if (!_c.isRhythm && widget.lyrics != null && !widget.lyrics!.isEmpty)
+          if (!_c.isRhythm &&
+              !_pianoView &&
+              widget.lyrics != null &&
+              !widget.lyrics!.isEmpty)
             LyricsView(controller: _c, lyrics: widget.lyrics!),
           const SizedBox(height: 12),
           _progressBar(),
@@ -164,7 +182,9 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
               label: Text(
                 widget.freeMode
                     ? 'Reproducir'
-                    : (_c.isRhythm ? 'Empezar a tocar' : 'Empezar a cantar'),
+                    : ((_c.isRhythm || _pianoView)
+                          ? 'Empezar a tocar'
+                          : 'Empezar a cantar'),
               ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),

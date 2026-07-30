@@ -214,6 +214,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           rhythm: rhythm,
           lyrics: lyrics,
           freeMode: freeMode,
+          // Arranca en teclado didáctico si es una canción de piano/teclado.
+          pianoView: song.instruments.any(
+            (i) => i == 'Piano' || i == 'Teclado',
+          ),
         ),
       ),
     );
