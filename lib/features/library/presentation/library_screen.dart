@@ -9,6 +9,7 @@ import '../../karaoke/domain/lyrics.dart';
 import '../../karaoke/domain/melody.dart';
 import '../../karaoke/domain/rhythm.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
+import '../../karaoke/presentation/piano_learn_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../data/library_repository.dart';
 import '../domain/song.dart';
@@ -205,6 +206,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
       return;
     }
+    // Piano/teclado: pantalla dedicada estilo Yousician (horizontal).
+    final isPiano = song.instruments.any((i) => i == 'Piano' || i == 'Teclado');
+    if (melody != null && !freeMode && isPiano) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PianoLearnScreen(
+            instrumentalPath: song.path,
+            title: song.title,
+            melody: melody!,
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => KaraokeScreen(
@@ -214,10 +229,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           rhythm: rhythm,
           lyrics: lyrics,
           freeMode: freeMode,
-          // Arranca en teclado didáctico si es una canción de piano/teclado.
-          pianoView: song.instruments.any(
-            (i) => i == 'Piano' || i == 'Teclado',
-          ),
+          pianoView: isPiano,
         ),
       ),
     );
