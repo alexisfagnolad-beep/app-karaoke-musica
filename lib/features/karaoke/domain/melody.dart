@@ -91,9 +91,10 @@ class Melody {
   /// [maxGap]: hueco máximo (seg) que se "puentea" dentro de una misma nota.
   /// [smoothWindow]: ventana (en cuadros) del filtro de mediana (impar).
   List<MelodyNote> notes({
-    double minDuration = 0.08,
+    double minDuration = 0.12,
     double maxGap = 0.35,
-    int smoothWindow = 5,
+    int smoothWindow = 9,
+    double changeThreshold = 0.8,
   }) {
     final dt = fps > 0 ? 1.0 / fps : 0.02;
 
@@ -108,8 +109,7 @@ class Melody {
     }
     if (vm.isEmpty) return const [];
 
-    // 2) Corrección de saltos de octava por continuidad: cada nota se lleva a
-    //    la octava más cercana a la anterior (arranca desde la mediana global).
+    // 2) Corrección de saltos de octava por continuidad.
     var prev = _median(List<double>.of(vm));
     for (var i = 0; i < vm.length; i++) {
       var m = vm[i];
@@ -123,52 +123,61 @@ class Melody {
       prev = m;
     }
 
-    // 3) Suavizado por mediana + redondeo a semitono.
-    final midi = <int>[];
+    // 3) Suavizado fuerte por mediana (mata el temblor cuadro a cuadro).
+    final sm = <double>[];
     final half = smoothWindow ~/ 2;
     for (var i = 0; i < vm.length; i++) {
       final lo = (i - half).clamp(0, vm.length - 1);
       final hi = (i + half).clamp(0, vm.length - 1);
-      midi.add(_median(vm.sublist(lo, hi + 1)).round());
+      sm.add(_median(vm.sublist(lo, hi + 1)));
     }
 
-    // 4) Agrupar tramos con la misma nota, puenteando huecos <= maxGap.
+    // 4) Segmentación por histéresis: mantenemos la nota (ancla) hasta que la
+    //    melodía se aleja > changeThreshold semitonos de verdad. Así salen
+    //    notas largas y una silueta amable, no un escalón por cada temblor.
     final result = <MelodyNote>[];
-    int? curMidi;
-    double? start;
-    double? lastT;
+    var segStart = 0;
+    var anchor = sm[0];
+    var vals = <double>[sm[0]];
 
-    void close() {
-      if (curMidi != null && start != null && lastT != null) {
-        final end = lastT! + dt;
-        if (end - start! >= minDuration) {
-          result.add(MelodyNote(startT: start!, endT: end, midi: curMidi!));
-        }
+    void close(int endIdx) {
+      if (vals.isEmpty) return;
+      final midi = _median(vals).round();
+      final start = vt[segStart];
+      final end = vt[endIdx] + dt;
+      if (end - start >= minDuration) {
+        result.add(MelodyNote(startT: start, endT: end, midi: midi));
       }
-      curMidi = null;
-      start = null;
-      lastT = null;
     }
 
-    for (var i = 0; i < midi.length; i++) {
-      final m = midi[i];
-      final t = vt[i];
-      final gap = lastT == null ? 0.0 : t - lastT!;
-      if (curMidi == null) {
-        curMidi = m;
-        start = t;
-        lastT = t;
-      } else if (m == curMidi && gap <= maxGap) {
-        lastT = t;
+    for (var i = 1; i < sm.length; i++) {
+      final gap = vt[i] - vt[i - 1];
+      if (gap > maxGap || (sm[i] - anchor).abs() > changeThreshold) {
+        close(i - 1);
+        segStart = i;
+        anchor = sm[i];
+        vals = <double>[sm[i]];
       } else {
-        close();
-        curMidi = m;
-        start = t;
-        lastT = t;
+        vals.add(sm[i]);
       }
     }
-    close();
-    return result;
+    close(sm.length - 1);
+
+    // 5) Unir notas vecinas de la misma altura (por si quedó jitter en el borde).
+    final merged = <MelodyNote>[];
+    for (final n in result) {
+      if (merged.isNotEmpty &&
+          merged.last.midi == n.midi &&
+          n.startT - merged.last.endT <= maxGap) {
+        final prevN = merged.removeLast();
+        merged.add(
+          MelodyNote(startT: prevN.startT, endT: n.endT, midi: n.midi),
+        );
+      } else {
+        merged.add(n);
+      }
+    }
+    return merged;
   }
 
   static double _median(List<double> xs) {

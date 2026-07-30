@@ -262,7 +262,8 @@ class KaraokeController extends ChangeNotifier {
     if (isRhythm) {
       rhythmResult = scoreRhythm(_rhythm!.onsets, _userOnsets);
     } else {
-      melodicResult = scorePerformance(_melody!, _samples);
+      // Puntúa contra las barras que se ven (coherente con la guía en pantalla).
+      melodicResult = scoreAgainstNotes(notes, _samples);
     }
     notifyListeners();
   }

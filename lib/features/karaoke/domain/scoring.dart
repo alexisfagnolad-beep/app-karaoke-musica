@@ -89,3 +89,44 @@ KaraokeResult scorePerformance(
     coverage: coverage,
   );
 }
+
+/// Puntúa contra las BARRAS que se ven (notas agrupadas), para que el puntaje
+/// sea coherente con la guía en pantalla ("puntúa lo que ves").
+KaraokeResult scoreAgainstNotes(
+  List<MelodyNote> notes,
+  List<PerformanceSample> samples, {
+  double tolerance = 2.5,
+}) {
+  if (notes.isEmpty || samples.isEmpty) return KaraokeResult.empty;
+
+  var accSum = 0.0;
+  var scored = 0;
+  var sang = 0;
+
+  for (final s in samples) {
+    final note = _noteAt(notes, s.t);
+    if (note == null) continue; // fuera de toda barra: no puntúa.
+    scored++;
+    if (s.sungMidi == null) continue;
+    sang++;
+    final diff = octaveFoldedDiff(s.sungMidi!, note.midi).abs();
+    accSum += math.max(0.0, 1.0 - diff / tolerance);
+  }
+
+  if (scored == 0) return KaraokeResult.empty;
+  final coverage = sang / scored;
+  final pitchAccuracy = sang > 0 ? accSum / sang : 0.0;
+  final score = 100 * pitchAccuracy * (0.4 + 0.6 * coverage);
+  return KaraokeResult(
+    score: score.clamp(0, 100),
+    pitchAccuracy: pitchAccuracy,
+    coverage: coverage,
+  );
+}
+
+MelodyNote? _noteAt(List<MelodyNote> notes, double t) {
+  for (final n in notes) {
+    if (t >= n.startT && t < n.endT) return n;
+  }
+  return null;
+}
