@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/app_ui.dart';
+import '../../karaoke/domain/lyrics.dart';
 import '../../karaoke/domain/melody.dart';
 import '../../karaoke/domain/rhythm.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
@@ -163,6 +164,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _practice(Song song) {
     Melody? melody;
     Rhythm? rhythm;
+    Lyrics? lyrics;
     try {
       if (song.rhythmPath != null) {
         rhythm = Rhythm.fromJson(
@@ -173,6 +175,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         melody = Melody.parse(File(song.melodyPath!).readAsStringSync());
       } else {
         return;
+      }
+      // Letra sincronizada opcional (solo aplica al modo melódico).
+      if (melody != null && song.lyricsPath != null) {
+        lyrics = Lyrics.parse(File(song.lyricsPath!).readAsStringSync());
       }
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -187,6 +193,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           title: song.title,
           melody: melody,
           rhythm: rhythm,
+          lyrics: lyrics,
         ),
       ),
     );

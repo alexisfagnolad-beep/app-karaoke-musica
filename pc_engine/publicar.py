@@ -169,6 +169,7 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
 
     melody = project_dir / "melody.json"
     rhythm = project_dir / "rhythm.json"
+    lyrics = project_dir / "lyrics.json"
 
     log("Conectando con GitHub...")
     try:
@@ -207,6 +208,12 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
             name_rhy = f"{slug}__rhythm.json"
             _upload_asset(release, rhythm, name_rhy, token)
             entry["rhythm"] = name_rhy
+
+        if lyrics.exists():
+            log("Subiendo la letra...")
+            name_ly = f"{slug}__lyrics.json"
+            _upload_asset(release, lyrics, name_ly, token)
+            entry["lyrics"] = name_ly
 
         log("Actualizando el índice de proyectos...")
         # Recargamos la release para tener los assets recién subidos.

@@ -5,3 +5,5 @@
 
 demucs>=4.0.0
 soundfile>=0.12.1
+# Transcripción de la letra (usa el PyTorch que ya trae Demucs).
+openai-whisper>=20231117

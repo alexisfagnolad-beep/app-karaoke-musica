@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/app_ui.dart';
 import '../data/karaoke_controller.dart';
+import '../domain/lyrics.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
+import 'lyrics_view.dart';
 import 'pitch_roll_view.dart';
 
 /// Pantalla de práctica con puntaje: reproduce el instrumental, muestra la guía
@@ -15,12 +17,14 @@ class KaraokeScreen extends StatefulWidget {
     required this.title,
     this.melody,
     this.rhythm,
+    this.lyrics,
   });
 
   final String instrumentalPath;
   final String title;
   final Melody? melody;
   final Rhythm? rhythm;
+  final Lyrics? lyrics;
 
   @override
   State<KaraokeScreen> createState() => _KaraokeScreenState();
@@ -93,6 +97,8 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
                 ? Center(child: _rhythmLive())
                 : PitchRollView(controller: _c),
           ),
+          if (!_c.isRhythm && widget.lyrics != null && !widget.lyrics!.isEmpty)
+            LyricsView(controller: _c, lyrics: widget.lyrics!),
           const SizedBox(height: 12),
           _progressBar(),
           const SizedBox(height: 16),

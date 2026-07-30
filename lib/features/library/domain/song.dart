@@ -22,6 +22,10 @@ class Song {
   /// batería/percusión con puntaje. `null` si no aplica.
   final String? rhythmPath;
 
+  /// Ruta a la letra sincronizada (`lyrics.json`) si se cargó, para mostrarla
+  /// debajo de las barras. `null` si no hay.
+  final String? lyricsPath;
+
   /// Id del proyecto remoto del que se sincronizó (de la PC), o `null` si se
   /// agregó a mano. Sirve para no importar dos veces la misma canción.
   final String? remoteId;
@@ -37,6 +41,7 @@ class Song {
     required this.addedAt,
     this.melodyPath,
     this.rhythmPath,
+    this.lyricsPath,
     this.remoteId,
   });
 
@@ -54,6 +59,7 @@ class Song {
     String? melodyPath,
     bool clearMelody = false,
     String? rhythmPath,
+    String? lyricsPath,
     String? remoteId,
   }) => Song(
     id: id,
@@ -63,6 +69,7 @@ class Song {
     instruments: instruments ?? this.instruments,
     melodyPath: clearMelody ? null : (melodyPath ?? this.melodyPath),
     rhythmPath: rhythmPath ?? this.rhythmPath,
+    lyricsPath: lyricsPath ?? this.lyricsPath,
     remoteId: remoteId ?? this.remoteId,
     addedAt: addedAt,
   );
@@ -75,6 +82,7 @@ class Song {
     'instruments': instruments,
     'melodyPath': melodyPath,
     'rhythmPath': rhythmPath,
+    'lyricsPath': lyricsPath,
     'remoteId': remoteId,
     'addedAt': addedAt.toIso8601String(),
   };
@@ -87,6 +95,7 @@ class Song {
     instruments: (json['instruments'] as List?)?.cast<String>() ?? const [],
     melodyPath: json['melodyPath'] as String?,
     rhythmPath: json['rhythmPath'] as String?,
+    lyricsPath: json['lyricsPath'] as String?,
     remoteId: json['remoteId'] as String?,
     addedAt:
         DateTime.tryParse(json['addedAt'] as String? ?? '') ??

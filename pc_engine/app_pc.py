@@ -261,8 +261,17 @@ class KaraokeApp:
                 self.logln("[2/2] Extrayendo la referencia de ritmo...")
                 self._stream([PY, str(HERE / "rhythm.py"), str(self.project)])
             else:
-                self.logln("[2/2] Extrayendo la melodía de referencia...")
+                self.logln("[2/3] Extrayendo la melodía de referencia...")
                 self._stream([PY, str(HERE / "melody.py"), str(self.project)])
+                # La letra solo tiene sentido para la voz.
+                if instrument == "voz":
+                    self.logln("")
+                    self.logln("[3/3] Transcribiendo la letra (Whisper)...")
+                    self.logln("      La 1ª vez baja el modelo; puede tardar.")
+                    rc_ly = self._stream(
+                        [PY, str(HERE / "lyrics.py"), str(self.project)])
+                    if rc_ly == 2:
+                        self.logln("      (Sin letra esta vez; el resto quedó OK.)")
             self.logln("")
             self.logln("✅ ¡Listo! Ya podés abrir la carpeta del resultado.")
         except Exception as exc:  # noqa: BLE001

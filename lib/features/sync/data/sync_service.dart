@@ -17,6 +17,7 @@ class RemoteProject {
     required this.instrumentalUrl,
     this.melodyUrl,
     this.rhythmUrl,
+    this.lyricsUrl,
     this.imported = false,
     this.downloading = false,
   });
@@ -30,6 +31,7 @@ class RemoteProject {
   final String instrumentalUrl;
   final String? melodyUrl;
   final String? rhythmUrl;
+  final String? lyricsUrl;
 
   bool imported;
   bool downloading;
@@ -124,6 +126,7 @@ class SyncService extends ChangeNotifier {
         if (instUrl == null) continue; // sin instrumental no sirve.
         final melName = m['melody'] as String?;
         final rhyName = m['rhythm'] as String?;
+        final lyName = m['lyrics'] as String?;
         list.add(
           RemoteProject(
             id: m['id'] as String,
@@ -134,6 +137,7 @@ class SyncService extends ChangeNotifier {
             instrumentalUrl: instUrl,
             melodyUrl: melName == null ? null : urlByName[melName],
             rhythmUrl: rhyName == null ? null : urlByName[rhyName],
+            lyricsUrl: lyName == null ? null : urlByName[lyName],
             imported: imported.contains(m['id']),
           ),
         );
@@ -171,6 +175,12 @@ class SyncService extends ChangeNotifier {
         await _downloadToFile(p.rhythmUrl!, rhythmPath);
       }
 
+      String? lyricsPath;
+      if (p.lyricsUrl != null) {
+        lyricsPath = '$base.lyrics.json';
+        await _downloadToFile(p.lyricsUrl!, lyricsPath);
+      }
+
       await _repo.addSong(
         sourcePath: instPath,
         title: p.title,
@@ -178,11 +188,12 @@ class SyncService extends ChangeNotifier {
         instruments: p.instruments,
         melodySourcePath: melodyPath,
         rhythmSourcePath: rhythmPath,
+        lyricsSourcePath: lyricsPath,
         remoteId: p.id,
       );
 
       // Limpieza de temporales.
-      for (final path in [instPath, melodyPath, rhythmPath]) {
+      for (final path in [instPath, melodyPath, rhythmPath, lyricsPath]) {
         if (path == null) continue;
         try {
           final f = File(path);
