@@ -149,12 +149,20 @@ class KaraokeApp:
                                      command=self.publish)
         self.publish_btn.pack(side="left", expand=True, fill="x", padx=(6, 0))
 
-        self.update_btn = tk.Button(content, text="🔄  Actualizar app",
+        links = tk.Frame(content, bg=bg)
+        links.pack(pady=(10, 0))
+        self.update_btn = tk.Button(links, text="🔄  Actualizar app",
                                     font=("Segoe UI", 9), fg=muted,
                                     bg=bg, activebackground=bg,
                                     activeforeground="white", relief="flat",
                                     cursor="hand2", bd=0, command=self.update_app)
-        self.update_btn.pack(pady=(10, 0))
+        self.update_btn.pack(side="left", padx=(0, 16))
+        self.token_btn = tk.Button(links, text="🔑  Cambiar token",
+                                   font=("Segoe UI", 9), fg=muted,
+                                   bg=bg, activebackground=bg,
+                                   activeforeground="white", relief="flat",
+                                   cursor="hand2", bd=0, command=self.change_token)
+        self.token_btn.pack(side="left")
 
         self.root.after(100, self._drain)
 
@@ -326,6 +334,14 @@ class KaraokeApp:
                         "Enviar al celular",
                         msg + "\n\nAbrí la app en el celular y tocá "
                         "'Sincronizar con la PC'.")
+                elif publicar.is_token_error(msg):
+                    # El token guardado no sirve: lo borramos y ofrecemos cambiarlo.
+                    self._forget_token()
+                    if messagebox.askyesno(
+                            "Enviar al celular",
+                            msg + "\n\n¿Querés pegar un token nuevo ahora?"):
+                        if self._get_token():
+                            self.publish()  # reintenta con el token nuevo.
                 else:
                     messagebox.showwarning("Enviar al celular", msg)
 
@@ -333,7 +349,23 @@ class KaraokeApp:
 
         threading.Thread(target=work, daemon=True).start()
 
-    # ---- auto-actualización ----
+    # ---- token de GitHub ----
+    def change_token(self):
+        """Borra el token guardado y pide uno nuevo."""
+        self._forget_token()
+        if self._get_token():
+            messagebox.showinfo(
+                "Cambiar token",
+                "Token guardado. Ya podés tocar 'Enviar al celular'.")
+
+    def _forget_token(self) -> None:
+        """Borra el token guardado (cuando GitHub lo rechazó)."""
+        try:
+            if TOKEN_FILE.exists():
+                TOKEN_FILE.unlink()
+        except Exception:  # noqa: BLE001
+            pass
+
     def _get_token(self) -> str:
         if TOKEN_FILE.exists():
             saved = TOKEN_FILE.read_text(encoding="utf-8").strip()
@@ -341,7 +373,8 @@ class KaraokeApp:
                 return saved
         token = simpledialog.askstring(
             "Token de GitHub",
-            "Pegá tu token de GitHub (el mismo que usás en el celular).\n"
+            "Pegá tu Personal Access Token de GitHub (empieza con 'ghp_' o\n"
+            "'github_pat_'), con permiso de escritura del repo.\n"
             "Se guarda solo en esta PC (token.txt), no se comparte.",
             show="*", parent=self.root,
         )

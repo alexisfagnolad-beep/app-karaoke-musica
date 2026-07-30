@@ -175,10 +175,7 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
     try:
         release = get_or_create_release(token)
     except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403):
-            return False, (f"GitHub rechazó el token ({exc.code}). "
-                           "Necesitás un token con permiso de escritura del repo.")
-        return False, f"Error de GitHub ({exc.code})."
+        return False, _token_error_msg(exc.code)
     except Exception as exc:  # noqa: BLE001
         return False, f"No pude conectar (¿internet?): {exc}"
 
@@ -225,8 +222,28 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
         _upload_bytes(release, json.dumps(index, ensure_ascii=False).encode("utf-8"),
                       INDEX_NAME, token, "application/json")
     except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            return False, _token_error_msg(exc.code)
         return False, f"Falló la subida (GitHub {exc.code})."
     except Exception as exc:  # noqa: BLE001
         return False, f"Falló la publicación: {exc}"
 
     return True, f"Listo: '{title}' ya está disponible para sincronizar en el celular."
+
+
+def _token_error_msg(code: int) -> str:
+    """Mensaje claro según el rechazo de GitHub al token."""
+    if code == 401:
+        return ("El token es inválido o venció (401). Tiene que ser un Personal "
+                "Access Token de GitHub (texto que empieza con 'ghp_' o "
+                "'github_pat_'), NO una clave SSH ni un archivo. Creá uno nuevo "
+                "con permiso de escritura y volvé a intentar.")
+    if code == 403:
+        return ("El token no tiene permiso de escritura del repo (403). Dale "
+                "acceso de escritura (Contents: Read and write) y reintentá.")
+    return f"GitHub rechazó el token ({code})."
+
+
+def is_token_error(msg: str) -> bool:
+    """True si el mensaje de error es por el token (para re-pedirlo)."""
+    return "token" in (msg or "").lower()
