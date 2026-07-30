@@ -62,7 +62,8 @@ def estimate_f0(frame, sr, fmin=65.0, fmax=1200.0, clarity_threshold=0.5):
     denom = a - 2 * b + c
     shift = 0.5 * (a - c) / denom if denom != 0 else 0.0
     tau = peak + shift
-    return (sr / tau if tau > 0 else 0.0), clarity
+    # Casteamos a float de Python: numpy.float64 no es serializable a JSON.
+    return (float(sr / tau) if tau > 0 else 0.0), float(clarity)
 
 
 def hz_to_note(freq: float):
