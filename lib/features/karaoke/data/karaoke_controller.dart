@@ -129,10 +129,12 @@ class KaraokeController extends ChangeNotifier {
     String instrumentalPath,
     Melody melody, {
     bool freeMode = false,
+    int difficulty = 1,
   }) async {
     _melody = melody;
     _rhythm = null;
     this.freeMode = freeMode;
+    this.difficulty = difficulty.clamp(0, 2);
     _rebuildNotes();
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
     player.playerStateStream.listen(_onPlayerState);

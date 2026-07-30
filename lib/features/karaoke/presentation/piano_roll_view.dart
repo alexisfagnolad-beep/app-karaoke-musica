@@ -118,21 +118,34 @@ class _PianoPainter extends CustomPainter {
     final notes = c.notes;
     if (notes.isEmpty) return;
 
-    // Rango de teclas: del Do inferior al Do superior que cubran la melodía.
+    // Rango de teclas: SOLO las que usa la canción (así el teclado no se llena
+    // de teclas de más y las que hay quedan bien grandes). Con un semitono de
+    // margen a cada lado y arrancando/terminando en tecla blanca.
     var minMidi = notes.first.midi;
     var maxMidi = notes.first.midi;
     for (final n in notes) {
       if (n.midi < minMidi) minMidi = n.midi;
       if (n.midi > maxMidi) maxMidi = n.midi;
     }
-    var startMidi = minMidi - (minMidi % 12); // baja hasta un Do.
-    var endMidi = maxMidi + ((12 - (maxMidi % 12)) % 12); // sube hasta un Do.
-    // Limitar el ancho a ~3 octavas para que las teclas no queden finísimas.
+    var startMidi = minMidi - 1;
+    while (!_whitePc.contains(startMidi % 12)) {
+      startMidi--; // arrancar en una tecla blanca.
+    }
+    var endMidi = maxMidi + 1;
+    while (!_whitePc.contains(endMidi % 12)) {
+      endMidi++; // terminar en una tecla blanca.
+    }
+    // Techo de seguridad para melodías con rango enorme.
     if (endMidi - startMidi > 36) {
       final center = (minMidi + maxMidi) ~/ 2;
       startMidi = center - 18;
-      startMidi -= startMidi % 12;
-      endMidi = startMidi + 36;
+      while (!_whitePc.contains(startMidi % 12)) {
+        startMidi--;
+      }
+      endMidi = center + 18;
+      while (!_whitePc.contains(endMidi % 12)) {
+        endMidi++;
+      }
     }
 
     // Teclas blancas en el rango.
@@ -142,7 +155,8 @@ class _PianoPainter extends CustomPainter {
     }
     if (whites.isEmpty) return;
 
-    final keyboardH = (size.height * 0.30).clamp(90.0, 220.0);
+    // Teclado más grande (más protagonismo, más didáctico).
+    final keyboardH = (size.height * 0.40).clamp(120.0, 300.0);
     final hitLine = size.height - keyboardH;
     final whiteW = size.width / whites.length;
     final pps = hitLine / lookahead;
@@ -228,12 +242,12 @@ class _PianoPainter extends CustomPainter {
         Paint()
           ..color = active ? kNoteColors[midi % 12] : const Color(0xFFF7F7FA),
       );
-      // Nombre Do-Re-Mi.
+      // Nombre Do-Re-Mi (grande, para los que empiezan).
       _label(
         canvas,
         _solfege[midi % 12] ?? '',
-        Offset(x + whiteW / 2, hitLine + keyboardH - 16),
-        active ? Colors.white : const Color(0xFF6A6A78),
+        Offset(x + whiteW / 2, hitLine + keyboardH - 30),
+        active ? Colors.white : const Color(0xFF5A5A68),
         whiteW,
       );
       // Tecla que toca el usuario.
@@ -280,13 +294,15 @@ class _PianoPainter extends CustomPainter {
     double maxW,
   ) {
     if (text.isEmpty || maxW < 16) return;
+    // Escala el nombre con el ancho de la tecla (grande cuando hay pocas).
+    final fontSize = (maxW * 0.34).clamp(12.0, 22.0);
     final tp = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
         ),
       ),
       textDirection: TextDirection.ltr,
