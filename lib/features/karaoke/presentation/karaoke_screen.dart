@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/app_ui.dart';
+import '../../../shared/ui/celebration.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/lyrics.dart';
 import '../domain/melody.dart';
@@ -354,9 +355,6 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
     final score = _c.isRhythm
         ? _c.rhythmResult!.score
         : _c.melodicResult!.score;
-    final label = _c.isRhythm
-        ? _c.rhythmResult!.label
-        : _c.melodicResult!.label;
 
     final details = _c.isRhythm
         ? [
@@ -369,35 +367,11 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
             _stat('Sostenimiento', _c.melodicResult!.coverage),
           ];
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ScoreRing(score: score, label: label),
-          const SizedBox(height: 40),
-          ...details,
-          const SizedBox(height: 40),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Volver'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _c.start,
-                  icon: const Icon(Icons.replay),
-                  label: const Text('Otra vez'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return Celebration(
+      score: score,
+      onBack: () => Navigator.of(context).pop(),
+      onRetry: _c.start,
+      details: details,
     );
   }
 

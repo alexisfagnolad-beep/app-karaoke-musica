@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/app_ui.dart';
+import '../../../shared/ui/celebration.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/melody.dart';
 import 'piano_learn_view.dart';
@@ -161,35 +162,11 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
   }
 
   Widget _result() {
-    final r = _c.melodicResult!;
     return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              ScoreRing(score: r.score, label: r.label, size: 170),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Volver'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: _c.start,
-                    icon: const Icon(Icons.replay),
-                    label: const Text('Otra vez'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
+      child: Celebration(
+        score: _c.melodicResult!.score,
+        onBack: () => Navigator.of(context).pop(),
+        onRetry: _c.start,
       ),
     );
   }
