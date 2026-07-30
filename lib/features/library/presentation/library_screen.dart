@@ -424,41 +424,113 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  // Ícono y color según el instrumento principal (más lúdico).
+  (IconData, Color) _songLook(Song song) {
+    final ins = song.instruments;
+    if (ins.contains('Batería')) return (Icons.album, AppColors.pink);
+    if (ins.contains('Piano') || ins.contains('Teclado')) {
+      return (Icons.piano, AppColors.teal);
+    }
+    if (ins.contains('Guitarra')) return (Icons.music_note, AppColors.orange);
+    if (ins.contains('Bajo')) return (Icons.graphic_eq, AppColors.blue);
+    if (ins.contains('Voz')) return (Icons.mic, AppColors.purple);
+    return (Icons.library_music, AppColors.blue);
+  }
+
   Widget _songTile(Song song) {
+    final (icon, color) = _songLook(song);
     final tags = [
       if (song.genre != null) song.genre!,
       if (song.instruments.isNotEmpty) song.instruments.join(', '),
     ].join('  •  ');
-    final subtitleText = [
-      if (song.canScore) 'Con puntaje',
-      if (tags.isNotEmpty) tags,
-    ].join('  •  ');
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: song.canScore
-            ? const Color(0xFFE0457B).withValues(alpha: 0.15)
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(
-          song.canScore ? Icons.stars : Icons.music_note,
-          color: song.canScore
-              ? const Color(0xFFE0457B)
-              : Theme.of(context).colorScheme.onSurfaceVariant,
+    return Card(
+      margin: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _openSong(song),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [color.withValues(alpha: 0.9), color],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (song.canScore)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF4AE3B5,
+                              ).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              '★ Jugar',
+                              style: TextStyle(
+                                color: Color(0xFF4AE3B5),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        Flexible(
+                          child: Text(
+                            tags,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'edit') _editSong(song);
+                  if (v == 'delete') _confirmDelete(song);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Editar etiquetas')),
+                  PopupMenuItem(value: 'delete', child: Text('Quitar')),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-      title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: subtitleText.isEmpty
-          ? null
-          : Text(subtitleText, maxLines: 1, overflow: TextOverflow.ellipsis),
-      onTap: () => _openSong(song),
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) {
-          if (v == 'edit') _editSong(song);
-          if (v == 'delete') _confirmDelete(song);
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'edit', child: Text('Editar etiquetas')),
-          PopupMenuItem(value: 'delete', child: Text('Quitar')),
-        ],
       ),
     );
   }

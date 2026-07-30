@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/app_ui.dart';
+import '../../karaoke/data/karaoke_controller.dart';
 import '../../sync/presentation/sync_screen.dart';
 import '../../update/presentation/update_screen.dart';
 
@@ -26,6 +27,21 @@ class SettingsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            Card(
+              child: StatefulBuilder(
+                builder: (context, setState) => SwitchListTile(
+                  secondary: const CircleAvatar(
+                    backgroundColor: Color(0x33FF8A3D),
+                    child: Icon(Icons.vibration, color: AppColors.orange),
+                  ),
+                  title: const Text('Efectos (vibración)'),
+                  subtitle: const Text('Vibra al acertar notas y golpes.'),
+                  value: KaraokeController.effectsEnabled,
+                  onChanged: (v) =>
+                      setState(() => KaraokeController.effectsEnabled = v),
+                ),
+              ),
+            ),
             _tile(
               context,
               icon: Icons.cloud_sync,

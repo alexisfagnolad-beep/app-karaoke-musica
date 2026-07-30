@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -70,6 +71,10 @@ class KaraokeController extends ChangeNotifier {
   /// Semitonos de tolerancia para considerar que "pegaste" la barra.
   /// Amable a propósito (es un juego): con estar cerca, cuenta.
   static const double onPitchTolerance = 2.5;
+
+  /// Efectos (vibración al acertar). Se puede silenciar desde Ajustes.
+  static bool effectsEnabled = true;
+  int _lastHapticNote = -1;
 
   KaraokeResult? melodicResult;
   RhythmResult? rhythmResult;
@@ -177,6 +182,7 @@ class KaraokeController extends ChangeNotifier {
     _onset.reset();
     _hits = 0;
     lastUserHitT = -1;
+    _lastHapticNote = -1;
     _liveScore = 0;
     _direction = 0;
     _lastT = null;
@@ -239,6 +245,7 @@ class KaraokeController extends ChangeNotifier {
         _userOnsets.add(t);
         _hits++;
         lastUserHitT = t;
+        if (effectsEnabled) HapticFeedback.lightImpact();
       }
     } else {
       final result = await _pitch.getPitchFromFloatBuffer(block);
@@ -273,6 +280,11 @@ class KaraokeController extends ChangeNotifier {
     final diff = octaveFoldedDiff(midi, notes[idx].midi);
     if (diff.abs() <= onPitchTolerance) {
       _direction = 0;
+      // Vibración corta al "enganchar" una barra nueva afinado.
+      if (effectsEnabled && idx != _lastHapticNote) {
+        _lastHapticNote = idx;
+        HapticFeedback.selectionClick();
+      }
       // Iluminar la barra en proporción al tiempo cantado afinado.
       final dur = notes[idx].duration;
       if (dur > 0) {
