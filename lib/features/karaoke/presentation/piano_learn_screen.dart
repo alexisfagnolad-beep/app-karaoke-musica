@@ -17,11 +17,25 @@ class PianoLearnScreen extends StatefulWidget {
     required this.instrumentalPath,
     required this.title,
     required this.melody,
-  });
+  }) : builtInNotes = null,
+       builtInDuration = null;
 
-  final String instrumentalPath;
+  /// Canción prediseñada (sin audio, con metrónomo interno).
+  const PianoLearnScreen.builtIn({
+    super.key,
+    required this.title,
+    required List<MelodyNote> notes,
+    required double duration,
+  }) : builtInNotes = notes,
+       builtInDuration = duration,
+       instrumentalPath = null,
+       melody = null;
+
+  final String? instrumentalPath;
   final String title;
-  final Melody melody;
+  final Melody? melody;
+  final List<MelodyNote>? builtInNotes;
+  final double? builtInDuration;
 
   @override
   State<PianoLearnScreen> createState() => _PianoLearnScreenState();
@@ -34,7 +48,11 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
   void initState() {
     super.initState();
     // Arranca en Fácil (melodía principal resumida, para empezar de cero).
-    _c.loadMelodic(widget.instrumentalPath, widget.melody, difficulty: 0);
+    if (widget.builtInNotes != null) {
+      _c.loadBuiltInMelodic(widget.builtInNotes!, widget.builtInDuration!);
+    } else {
+      _c.loadMelodic(widget.instrumentalPath!, widget.melody!, difficulty: 0);
+    }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,

@@ -61,7 +61,7 @@ class _PianoLearnViewState extends State<PianoLearnView>
       builder: (context, _) {
         final c = widget.controller;
         if (!c.running || c.notes.isEmpty) return const SizedBox.shrink();
-        final pos = c.player.position.inMilliseconds / 1000.0;
+        final pos = c.clock;
         final remain = c.notes.first.startT - pos;
         if (remain <= 0 || remain > 3.5) return const SizedBox.shrink();
         final n = remain.ceil().clamp(1, 3);
@@ -116,7 +116,7 @@ class _LearnPainter extends CustomPainter {
 
     final keyboardTop = size.height * 0.52;
     final nowX = size.width * nowFrac;
-    final pos = c.player.position.inMilliseconds / 1000.0;
+    final pos = c.clock;
     final pps = (size.width - nowX) / lookahead;
     double xForTime(double t) => nowX + (t - pos) * pps;
 

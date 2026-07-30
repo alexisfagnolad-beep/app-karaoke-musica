@@ -51,7 +51,7 @@ class _DrumRollViewState extends State<DrumRollView>
         final c = widget.controller;
         final hits = c.rhythmRef?.hits ?? const [];
         if (!c.running || hits.isEmpty) return const SizedBox.shrink();
-        final pos = c.player.position.inMilliseconds / 1000.0;
+        final pos = c.clock;
         final remain = hits.first.t - pos;
         if (remain <= 0 || remain > 3.5) return const SizedBox.shrink();
         final n = remain.ceil().clamp(1, 3);
@@ -100,7 +100,7 @@ class _DrumPainter extends CustomPainter {
     final hitLine = size.height - padH;
     final laneW = size.width / 3;
     final pps = hitLine / lookahead;
-    final pos = c.player.position.inMilliseconds / 1000.0;
+    final pos = c.clock;
 
     double xForLane(int b) => b * laneW + laneW / 2;
     double yForTime(double t) => hitLine - (t - pos) * pps;

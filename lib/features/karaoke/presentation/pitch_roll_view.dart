@@ -78,7 +78,7 @@ class _PitchRollViewState extends State<PitchRollView>
       builder: (context, _) {
         final c = widget.controller;
         if (!c.running || c.notes.isEmpty) return const SizedBox.shrink();
-        final pos = c.player.position.inMilliseconds / 1000.0;
+        final pos = c.clock;
         final remain = c.notes.first.startT - pos;
         if (remain <= 0 || remain > 3.5) return const SizedBox.shrink();
         final n = remain.ceil().clamp(1, 3);
@@ -148,7 +148,7 @@ class _PitchRollPainter extends CustomPainter {
 
     double yFor(double midi) => size.height * (1.0 - (midi - minMidi) / range);
 
-    final pos = controller.player.position.inMilliseconds / 1000.0;
+    final pos = controller.clock;
     final nowX = size.width * nowFrac;
     double xFor(double t) => nowX + (t - pos) * pps;
 

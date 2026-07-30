@@ -77,7 +77,7 @@ class _PianoRollViewState extends State<PianoRollView>
       builder: (context, _) {
         final c = widget.controller;
         if (!c.running || c.notes.isEmpty) return const SizedBox.shrink();
-        final pos = c.player.position.inMilliseconds / 1000.0;
+        final pos = c.clock;
         final remain = c.notes.first.startT - pos;
         if (remain <= 0 || remain > 3.5) return const SizedBox.shrink();
         final n = remain.ceil().clamp(1, 3);
@@ -160,7 +160,7 @@ class _PianoPainter extends CustomPainter {
     final hitLine = size.height - keyboardH;
     final whiteW = size.width / whites.length;
     final pps = hitLine / lookahead;
-    final pos = c.player.position.inMilliseconds / 1000.0;
+    final pos = c.clock;
 
     double xForMidi(int midi) {
       if (_whitePc.contains(midi % 12)) {

@@ -16,11 +16,21 @@ class DrumLearnScreen extends StatefulWidget {
     required this.instrumentalPath,
     required this.title,
     required this.rhythm,
-  });
+  }) : builtInDuration = null;
 
-  final String instrumentalPath;
+  /// Patrón rítmico prediseñado (sin audio, con metrónomo interno).
+  const DrumLearnScreen.builtIn({
+    super.key,
+    required this.title,
+    required this.rhythm,
+    required double duration,
+  }) : instrumentalPath = null,
+       builtInDuration = duration;
+
+  final String? instrumentalPath;
   final String title;
   final Rhythm rhythm;
+  final double? builtInDuration;
 
   @override
   State<DrumLearnScreen> createState() => _DrumLearnScreenState();
@@ -33,7 +43,11 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
   @override
   void initState() {
     super.initState();
-    _c.loadRhythmic(widget.instrumentalPath, widget.rhythm);
+    if (widget.builtInDuration != null) {
+      _c.loadBuiltInRhythm(widget.rhythm, widget.builtInDuration!);
+    } else {
+      _c.loadRhythmic(widget.instrumentalPath!, widget.rhythm);
+    }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,

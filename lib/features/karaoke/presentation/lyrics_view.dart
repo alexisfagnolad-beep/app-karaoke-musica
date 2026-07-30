@@ -46,7 +46,7 @@ class _LyricsViewState extends State<LyricsView>
     return AnimatedBuilder(
       animation: _ticker,
       builder: (context, _) {
-        final pos = widget.controller.player.position.inMilliseconds / 1000.0;
+        final pos = widget.controller.clock;
         final idx = widget.lyrics.lineIndexAt(pos);
         if (idx == null) return SizedBox(height: widget.big ? 140 : 76);
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -84,8 +85,7 @@ class KaraokeController extends ChangeNotifier {
   double lastUserHitT = -1;
 
   /// Velocidad de reproducción (1.0 = normal). Bajarla ayuda a aprender; como
-  /// todo se sincroniza con la posición del reproductor, las barras/notas
-  /// siguen alineadas con el audio.
+  /// todo se sincroniza con el reloj, las barras/notas siguen alineadas.
   double tempo = 1.0;
 
   /// Cambia el tempo (0.5..1.0). El tono se mantiene (no suena grave).
@@ -95,6 +95,43 @@ class KaraokeController extends ChangeNotifier {
       await player.setSpeed(tempo);
     } catch (_) {}
     notifyListeners();
+  }
+
+  // --- Reloj: audio o metrónomo (contenido prediseñado, sin archivo) ---
+  final Stopwatch _sw = Stopwatch();
+  Timer? _metroTimer;
+
+  /// true = contenido prediseñado (melodía/patrón interno), sin pista de audio.
+  bool metronomeMode = false;
+  double _contentDuration = 0;
+
+  /// Tiempo actual en segundos (de la pista de audio o del metrónomo interno).
+  double get clock => metronomeMode
+      ? _sw.elapsedMilliseconds / 1000.0 * tempo
+      : player.position.inMilliseconds / 1000.0;
+
+  /// Carga una melodía prediseñada (lista de barras) sin audio.
+  void loadBuiltInMelodic(
+    List<MelodyNote> builtNotes,
+    double duration, {
+    int difficulty = 0,
+  }) {
+    _melody = null;
+    _rhythm = null;
+    freeMode = false;
+    metronomeMode = true;
+    this.difficulty = difficulty.clamp(0, 2);
+    notes = builtNotes;
+    noteLit = List<double>.filled(notes.length, 0);
+    _contentDuration = duration;
+  }
+
+  /// Carga un patrón rítmico prediseñado sin audio.
+  void loadBuiltInRhythm(Rhythm rhythm, double duration) {
+    _rhythm = rhythm;
+    _melody = null;
+    metronomeMode = true;
+    _contentDuration = duration;
   }
 
   bool get running => _running;
@@ -136,9 +173,10 @@ class KaraokeController extends ChangeNotifier {
     noteLit = List<double>.filled(notes.length, 0);
   }
 
-  /// Cambia la dificultad (rehace las barras). Solo cuando no está corriendo.
+  /// Cambia la dificultad (rehace las barras). Solo cuando no está corriendo y
+  /// hay una melodía cargada (no aplica a contenido prediseñado).
   void setDifficulty(int level) {
-    if (_running) return;
+    if (_running || _melody == null) return;
     difficulty = level.clamp(0, 2);
     _rebuildNotes();
     notifyListeners();
@@ -225,6 +263,24 @@ class KaraokeController extends ChangeNotifier {
         bufferSize: bufferSize,
       );
       _running = true;
+
+      // Contenido prediseñado: reloj de metrónomo interno (sin audio).
+      if (metronomeMode) {
+        _sw
+          ..reset()
+          ..start();
+        _metroTimer = Timer.periodic(const Duration(milliseconds: 80), (t) {
+          if (!_running) {
+            t.cancel();
+            return;
+          }
+          notifyListeners();
+          if (clock > _contentDuration + 0.5) finish();
+        });
+        notifyListeners();
+        return;
+      }
+
       await player.seek(Duration.zero);
       await player.setSpeed(tempo);
       player.play();
@@ -238,7 +294,7 @@ class KaraokeController extends ChangeNotifier {
   Future<void> _onAudio(dynamic obj) async {
     if (!_running) return;
     final block = (obj as List).cast<double>();
-    final t = player.position.inMilliseconds / 1000.0;
+    final t = clock;
 
     if (isRhythm) {
       if (_onset.process(block, t)) {
@@ -314,12 +370,14 @@ class KaraokeController extends ChangeNotifier {
   Future<void> finish() async {
     if (!_running) return;
     _running = false;
+    _metroTimer?.cancel();
+    _sw.stop();
     if (!freeMode) {
       try {
         await _capture.stop();
       } catch (_) {}
     }
-    await player.stop();
+    if (!metronomeMode) await player.stop();
 
     // Modo libre: no hay puntaje, solo termina.
     if (freeMode) {
@@ -340,6 +398,7 @@ class KaraokeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _metroTimer?.cancel();
     if (_running) {
       _capture.stop();
     }

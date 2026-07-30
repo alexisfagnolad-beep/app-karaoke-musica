@@ -5,6 +5,7 @@ import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../../../shared/ui/mascot.dart';
+import '../../karaoke/presentation/built_in_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../sync/data/sync_service.dart';
 import '../../update/data/update_service.dart';
@@ -141,6 +142,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           spacing: 14,
                           runSpacing: 14,
                           children: [
+                            _FunTile(
+                              size: w,
+                              icon: Icons.auto_awesome,
+                              label: 'Para empezar',
+                              colors: const [
+                                Color(0xFFFFC24D),
+                                Color(0xFFFF8A3D),
+                              ],
+                              onTap: () => _push(const BuiltInScreen()),
+                            ),
                             _FunTile(
                               size: w,
                               icon: Icons.mic_external_on,
