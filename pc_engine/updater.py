@@ -67,18 +67,31 @@ def download_and_apply(token: str, dest_dir: Path):
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    request = urllib.request.Request(zipball_url(), headers=headers)
-    try:
-        ctx = ssl.create_default_context()
+    ctx = ssl.create_default_context()
+
+    def _download(hdrs):
+        request = urllib.request.Request(zipball_url(), headers=hdrs)
         with urllib.request.urlopen(request, timeout=90, context=ctx) as resp:
-            data = resp.read()
+            return resp.read()
+
+    try:
+        data = _download(headers)
     except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403):
+        # Repo público: si el token guardado está mal (401/403), reintentamos
+        # SIN token, que igual funciona. Así un token viejo no bloquea la
+        # actualización.
+        if exc.code in (401, 403) and token:
+            headers.pop("Authorization", None)
+            try:
+                data = _download(headers)
+            except Exception as exc2:  # noqa: BLE001
+                return False, f"No se pudo descargar: {exc2}"
+        elif exc.code in (401, 403):
             return False, (
-                f"GitHub rechazó el token ({exc.code}). Revisá que sea válido "
-                "y tenga permiso de lectura del repositorio."
+                f"GitHub rechazó la descarga ({exc.code}). Probá de nuevo."
             )
-        return False, f"Error de GitHub ({exc.code})."
+        else:
+            return False, f"Error de GitHub ({exc.code})."
     except Exception as exc:  # noqa: BLE001
         return False, f"No se pudo descargar (¿internet?): {exc}"
 
