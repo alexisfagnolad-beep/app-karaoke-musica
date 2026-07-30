@@ -120,69 +120,96 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _Header(onSettings: _openSettings),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('Cantar y practicar'),
-                    _MenuCard(
-                      icon: Icons.mic_external_on,
-                      color: const Color(0xFFE0457B),
-                      title: 'Cantar (Karaoke)',
-                      subtitle:
-                          'Elegí una canción y cantá con puntaje o letra.',
-                      onTap: () => _push(
-                        const LibraryScreen(
-                          initialInstrument: 'Voz',
-                          titleOverride: 'Cantar',
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 14),
+                      child: Text(
+                        '¿Qué querés hacer?',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.music_note,
-                      color: const Color(0xFF1DB6A2),
-                      title: 'Practicar instrumentos',
-                      subtitle: 'Bajo, guitarra o batería con puntaje.',
-                      onTap: () => _push(
-                        const LibraryScreen(titleOverride: 'Practicar'),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.graphic_eq,
-                      color: const Color(0xFF7C4DFF),
-                      title: 'Afinación en vivo',
-                      subtitle: 'Mirá tu nota y los cents en tiempo real.',
-                      onTap: () => _push(const LivePitchScreen()),
-                    ),
-                    const SizedBox(height: 24),
-                    const _SectionTitle('Tu música'),
-                    _MenuCard(
-                      icon: Icons.library_music,
-                      color: const Color(0xFF4D9BFF),
-                      title: 'Biblioteca',
-                      subtitle:
-                          'Todas tus canciones, por género e instrumento.',
-                      onTap: () => _push(const LibraryScreen()),
-                    ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.audiotrack,
-                      color: const Color(0xFFFF8A3D),
-                      title: 'Reproducir un MP3',
-                      subtitle: 'Abrí una canción propia desde tu celular.',
-                      onTap: () => _push(const PlayerScreen()),
-                    ),
-                    const SizedBox(height: 24),
-                    const _SectionTitle('Más'),
-                    _MenuCard(
-                      icon: Icons.settings,
-                      color: const Color(0xFF9AA0B4),
-                      title: 'Ajustes',
-                      subtitle:
-                          'Sincronizar con la PC, actualizar y compartir.',
-                      onTap: _openSettings,
+                    LayoutBuilder(
+                      builder: (context, cons) {
+                        final w = (cons.maxWidth - 14) / 2;
+                        return Wrap(
+                          spacing: 14,
+                          runSpacing: 14,
+                          children: [
+                            _FunTile(
+                              size: w,
+                              icon: Icons.mic_external_on,
+                              label: 'Cantar',
+                              colors: const [
+                                Color(0xFFFF6FA5),
+                                Color(0xFFE0457B),
+                              ],
+                              onTap: () => _push(
+                                const LibraryScreen(
+                                  initialInstrument: 'Voz',
+                                  titleOverride: 'Cantar',
+                                ),
+                              ),
+                            ),
+                            _FunTile(
+                              size: w,
+                              icon: Icons.piano,
+                              label: 'Instrumentos',
+                              colors: const [
+                                Color(0xFF3DE0C6),
+                                Color(0xFF1DB6A2),
+                              ],
+                              onTap: () => _push(
+                                const LibraryScreen(titleOverride: 'Practicar'),
+                              ),
+                            ),
+                            _FunTile(
+                              size: w,
+                              icon: Icons.graphic_eq,
+                              label: 'Afinar',
+                              colors: const [
+                                Color(0xFF9D7BFF),
+                                Color(0xFF7C4DFF),
+                              ],
+                              onTap: () => _push(const LivePitchScreen()),
+                            ),
+                            _FunTile(
+                              size: w,
+                              icon: Icons.library_music,
+                              label: 'Biblioteca',
+                              colors: const [
+                                Color(0xFF6FB6FF),
+                                Color(0xFF4D9BFF),
+                              ],
+                              onTap: () => _push(const LibraryScreen()),
+                            ),
+                            _FunTile(
+                              size: w,
+                              icon: Icons.audiotrack,
+                              label: 'Reproducir',
+                              colors: const [
+                                Color(0xFFFFB05C),
+                                Color(0xFFFF8A3D),
+                              ],
+                              onTap: () => _push(const PlayerScreen()),
+                            ),
+                            _FunTile(
+                              size: w,
+                              icon: Icons.settings,
+                              label: 'Ajustes',
+                              colors: const [
+                                Color(0xFF8A90A6),
+                                Color(0xFF636A80),
+                              ],
+                              onTap: _openSettings,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -190,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 24),
                 child: Text(
-                  'Modo Karaoke Rápido — funciona sin internet',
+                  '🎵 Cantá, tocá y aprendé — sin internet',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
@@ -250,9 +277,9 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Cantá, practicá y afiná',
+                  '¡Hola! ¿Aprendemos música? 🎶',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ],
@@ -270,86 +297,75 @@ class _Header extends StatelessWidget {
 }
 
 /// Título de sección en el inicio.
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
-      child: Text(
-        text.toUpperCase(),
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.1,
-        ),
-      ),
-    );
-  }
-}
-
-class _MenuCard extends StatelessWidget {
-  const _MenuCard({
+/// Tile grande y colorido del inicio (pensado para chicos): degradé, ícono
+/// grande en un círculo y etiqueta corta. Botón bien tocable.
+class _FunTile extends StatelessWidget {
+  const _FunTile({
+    required this.size,
     required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
+    required this.label,
+    required this.colors,
     required this.onTap,
   });
 
+  final double size;
   final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
+  final String label;
+  final List<Color> colors;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, size: 28, color: color),
+    return SizedBox(
+      width: size,
+      height: size * 0.82,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: colors,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.7,
-                        ),
-                      ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.last.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                    child: Icon(icon, size: 30, color: Colors.white),
+                  ),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ],
+            ),
           ),
         ),
       ),
