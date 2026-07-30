@@ -65,7 +65,7 @@ def main() -> int:
     p = Path(args.input).expanduser().resolve()
     if p.is_dir():
         audio = None
-        for name in ("drums.wav", "instrumental.wav", "vocals.wav"):
+        for name in ("target.wav", "drums.wav", "instrumental.wav", "vocals.wav"):
             candidate = p / name
             if candidate.exists():
                 audio = candidate

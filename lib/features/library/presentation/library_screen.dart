@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/app_ui.dart';
 import '../../karaoke/domain/melody.dart';
+import '../../karaoke/domain/rhythm.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../data/library_repository.dart';
@@ -116,12 +118,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.stars, color: Color(0xFFE0457B)),
-              title: const Text('Cantar con puntaje'),
-              subtitle: const Text('Cantá sobre la pista y recibí un puntaje.'),
+              leading: Icon(
+                song.isRhythm ? Icons.graphic_eq : Icons.stars,
+                color: const Color(0xFFE0457B),
+              ),
+              title: Text(
+                song.isRhythm ? 'Tocar con puntaje' : 'Cantar con puntaje',
+              ),
+              subtitle: Text(
+                song.isRhythm
+                    ? 'Seguí el ritmo sobre la pista y recibí un puntaje.'
+                    : 'Cantá sobre la pista y recibí un puntaje.',
+              ),
               onTap: () {
                 Navigator.pop(sheetCtx);
-                _sing(song);
+                _practice(song);
               },
             ),
             ListTile(
@@ -149,15 +160,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _sing(Song song) {
-    final path = song.melodyPath;
-    if (path == null) return;
-    Melody melody;
+  void _practice(Song song) {
+    Melody? melody;
+    Rhythm? rhythm;
     try {
-      melody = Melody.parse(File(path).readAsStringSync());
+      if (song.rhythmPath != null) {
+        rhythm = Rhythm.fromJson(
+          json.decode(File(song.rhythmPath!).readAsStringSync())
+              as Map<String, dynamic>,
+        );
+      } else if (song.melodyPath != null) {
+        melody = Melody.parse(File(song.melodyPath!).readAsStringSync());
+      } else {
+        return;
+      }
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No pude leer la melodía de referencia.')),
+        const SnackBar(content: Text('No pude leer la referencia de puntaje.')),
       );
       return;
     }
@@ -167,6 +186,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           instrumentalPath: song.path,
           title: song.title,
           melody: melody,
+          rhythm: rhythm,
         ),
       ),
     );

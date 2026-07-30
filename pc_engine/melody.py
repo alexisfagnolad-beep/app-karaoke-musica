@@ -76,12 +76,13 @@ def hz_to_note(freq: float):
     return name, midi, cents
 
 
-def extract_melody(vocals_path: Path, fps: float = 50.0, window: int = 2048):
+def extract_melody(vocals_path: Path, fps: float = 50.0, window: int = 2048,
+                   fmin: float = 65.0):
     sig, sr = read_mono(vocals_path)
     hop = max(1, int(sr / fps))
     frames = []
     for i in range(0, max(0, len(sig) - window), hop):
-        f0, clarity = estimate_f0(sig[i:i + window], sr)
+        f0, clarity = estimate_f0(sig[i:i + window], sr, fmin=fmin)
         name, midi, cents = hz_to_note(f0)
         frames.append({
             "t": round(i / sr, 3),
@@ -105,27 +106,47 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Extrae la melodía de referencia (pitch de la voz).",
     )
-    parser.add_argument("project", help="Carpeta del proyecto (con vocals.wav) o un .wav")
+    parser.add_argument("project", help="Carpeta del proyecto o un .wav")
     parser.add_argument("--fps", type=float, default=50.0, help="Cuadros por segundo (default 50)")
+    parser.add_argument("--fmin", type=float, default=None,
+                        help="Frecuencia mínima (Hz). Para bajo conviene ~40.")
     args = parser.parse_args()
 
     target = Path(args.project).expanduser().resolve()
+    fmin = args.fmin
     if target.is_dir():
-        vocals = target / "vocals.wav"
+        # Preferimos target.wav (el instrumento aislado); si no, vocals.wav.
+        vocals = None
+        for name in ("target.wav", "vocals.wav"):
+            candidate = target / name
+            if candidate.exists():
+                vocals = candidate
+                break
         out_json = target / "melody.json"
         meta_path = target / "meta.json"
+        # Si el proyecto trae fmin en meta.json y no se pasó por CLI, usarlo.
+        if fmin is None and meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                fmin = float(meta.get("fmin", 65.0))
+            except Exception:
+                fmin = None
     else:
         vocals = target
         out_json = target.with_suffix(".melody.json")
         meta_path = None
 
-    if not vocals.exists():
-        print(f"ERROR: no encontré {vocals}", file=sys.stderr)
-        print("       ¿Corriste antes separate.py para generar vocals.wav?", file=sys.stderr)
+    if fmin is None:
+        fmin = 65.0
+
+    if vocals is None or not vocals.exists():
+        print("ERROR: no encontré la pista a analizar (target.wav/vocals.wav).",
+              file=sys.stderr)
+        print("       ¿Corriste antes separate.py?", file=sys.stderr)
         return 1
 
-    print(f"Analizando la voz: {vocals.name} ...")
-    melody = extract_melody(vocals, fps=args.fps)
+    print(f"Analizando: {vocals.name} (fmin={fmin:.0f} Hz) ...")
+    melody = extract_melody(vocals, fps=args.fps, fmin=fmin)
     out_json.write_text(json.dumps(melody, ensure_ascii=False), encoding="utf-8")
 
     if meta_path and meta_path.exists():

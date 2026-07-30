@@ -83,6 +83,7 @@ class LibraryRepository extends ChangeNotifier {
     String? genre,
     required List<String> instruments,
     String? melodySourcePath,
+    String? rhythmSourcePath,
     String? remoteId,
   }) async {
     final media = await _mediaDir();
@@ -98,6 +99,13 @@ class LibraryRepository extends ChangeNotifier {
       File(melodySourcePath).copySync(melodyDest);
     }
 
+    // Referencia de ritmo opcional (para practicar batería).
+    String? rhythmDest;
+    if (rhythmSourcePath != null && File(rhythmSourcePath).existsSync()) {
+      rhythmDest = '${media.path}/$id.rhythm.json';
+      File(rhythmSourcePath).copySync(rhythmDest);
+    }
+
     songs.insert(
       0,
       Song(
@@ -107,6 +115,7 @@ class LibraryRepository extends ChangeNotifier {
         genre: genre,
         instruments: instruments,
         melodyPath: melodyDest,
+        rhythmPath: rhythmDest,
         remoteId: remoteId,
         addedAt: DateTime.now(),
       ),
@@ -148,7 +157,7 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   Future<void> deleteSong(Song song) async {
-    for (final p in [song.path, song.melodyPath]) {
+    for (final p in [song.path, song.melodyPath, song.rhythmPath]) {
       if (p == null) continue;
       try {
         final f = File(p);

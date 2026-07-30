@@ -7,6 +7,7 @@ progreso. Usa Tkinter, que viene incluido con Python.
 Se lanza con `Karaoke.bat` (doble clic).
 """
 
+import json
 import os
 import queue
 import subprocess
@@ -78,6 +79,29 @@ class KaraokeApp:
         content = tk.Frame(root, bg=bg)
         content.pack(fill="both", expand=True, padx=24, pady=18)
 
+        # Selector de instrumento a practicar (el valor visible es la etiqueta;
+        # _instrument_key() la traduce al id que entiende el motor).
+        self._label_to_key = {
+            "🎤  Voz (cantar)": "voz",
+            "🥁  Batería (ritmo)": "bateria",
+            "🎸  Bajo": "bajo",
+            "🎹  Otros (guitarra/teclado)": "otros",
+        }
+        self.instrument = tk.StringVar(value="🎤  Voz (cantar)")
+        picker = tk.Frame(content, bg=bg)
+        picker.pack(fill="x", pady=(0, 12))
+        tk.Label(picker, text="Instrumento a practicar:",
+                 font=("Segoe UI", 10), fg=muted, bg=bg).pack(side="left")
+        self.instrument_menu = tk.OptionMenu(
+            picker, self.instrument, *self._label_to_key.keys())
+        self.instrument_menu.configure(
+            font=("Segoe UI", 10, "bold"), bg=panel, fg="white",
+            activebackground="#272334", activeforeground="white",
+            relief="flat", bd=0, highlightthickness=0, cursor="hand2",
+            width=28, anchor="w")
+        self.instrument_menu["menu"].configure(bg=panel, fg="white")
+        self.instrument_menu.pack(side="left", padx=(10, 0))
+
         self.btn = tk.Button(content, text="🎵  Elegir canción y procesar",
                              font=("Segoe UI", 13, "bold"),
                              bg=accent, fg="white", activebackground="#6A3EF0",
@@ -144,6 +168,9 @@ class KaraokeApp:
         self.root.after(100, self._drain)
 
     # ---- acciones ----
+    def _instrument_key(self) -> str:
+        return self._label_to_key.get(self.instrument.get(), "voz")
+
     def choose(self):
         path = filedialog.askopenfilename(
             title="Elegí una canción",
@@ -155,8 +182,11 @@ class KaraokeApp:
         self.project = None
         self.btn.configure(state="disabled")
         self.open_btn.configure(state="disabled")
+        self.publish_btn.configure(state="disabled")
         self.progress.start(12)
-        threading.Thread(target=self._run, args=(path,), daemon=True).start()
+        instrument = self._instrument_key()
+        threading.Thread(target=self._run, args=(path, instrument),
+                         daemon=True).start()
 
     def _stream(self, cmd) -> int:
         # Forzamos UTF-8 en el proceso hijo para evitar UnicodeEncodeError
@@ -175,24 +205,40 @@ class KaraokeApp:
         proc.wait()
         return proc.returncode
 
-    def _run(self, path: str):
+    def _run(self, path: str, instrument: str = "voz"):
         try:
             inp = Path(path)
             projects = HERE / "proyectos"
-            self.logln(f"Procesando: {inp.name}")
-            self.logln("[1/2] Separando voz e instrumental (Demucs)...")
+            self.logln(f"Procesando: {inp.name}  (instrumento: {instrument})")
+            self.logln("[1/2] Separando pistas (Demucs)...")
             self.logln("      La 1ª vez baja el modelo; si se corta por la red,")
             self.logln("      volvé a tocar 'Elegir canción' (retoma lo bajado).")
+            if instrument != "voz":
+                self.logln("      (separar 4 pistas tarda más que solo la voz)")
             rc = self._stream([PY, str(HERE / "separate.py"), str(inp),
-                               "-o", str(projects)])
+                               "-o", str(projects), "--instrument", instrument])
             if rc != 0:
                 self.logln("")
                 self.logln("⚠️  La separación no terminó. Probá de nuevo.")
                 return
             self.project = projects / inp.stem
+
+            # Tipo de referencia según lo que dejó separate.py en meta.json.
+            ref_kind = "melody"
+            try:
+                meta = json.loads(
+                    (self.project / "meta.json").read_text(encoding="utf-8"))
+                ref_kind = meta.get("referenceKind", "melody")
+            except Exception:  # noqa: BLE001
+                pass
+
             self.logln("")
-            self.logln("[2/2] Extrayendo melodía de referencia...")
-            self._stream([PY, str(HERE / "melody.py"), str(self.project)])
+            if ref_kind == "rhythm":
+                self.logln("[2/2] Extrayendo la referencia de ritmo...")
+                self._stream([PY, str(HERE / "rhythm.py"), str(self.project)])
+            else:
+                self.logln("[2/2] Extrayendo la melodía de referencia...")
+                self._stream([PY, str(HERE / "melody.py"), str(self.project)])
             self.logln("")
             self.logln("✅ ¡Listo! Ya podés abrir la carpeta del resultado.")
         except Exception as exc:  # noqa: BLE001

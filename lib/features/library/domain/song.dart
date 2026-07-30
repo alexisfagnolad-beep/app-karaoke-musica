@@ -15,8 +15,12 @@ class Song {
   final List<String> instruments;
 
   /// Ruta a la melodía de referencia (`melody.json`) si se cargó, para
-  /// cantar con puntaje. `null` si es solo una canción para reproducir.
+  /// cantar/tocar con puntaje melódico. `null` si no aplica.
   final String? melodyPath;
+
+  /// Ruta a la referencia de ritmo (`rhythm.json`) si se cargó, para practicar
+  /// batería/percusión con puntaje. `null` si no aplica.
+  final String? rhythmPath;
 
   /// Id del proyecto remoto del que se sincronizó (de la PC), o `null` si se
   /// agregó a mano. Sirve para no importar dos veces la misma canción.
@@ -32,11 +36,15 @@ class Song {
     required this.instruments,
     required this.addedAt,
     this.melodyPath,
+    this.rhythmPath,
     this.remoteId,
   });
 
-  /// true si tiene melodía de referencia → se puede cantar con puntaje.
-  bool get canScore => melodyPath != null;
+  /// true si tiene alguna referencia → se puede practicar con puntaje.
+  bool get canScore => melodyPath != null || rhythmPath != null;
+
+  /// true si la práctica es de ritmo (batería) en vez de melódica.
+  bool get isRhythm => rhythmPath != null && melodyPath == null;
 
   Song copyWith({
     String? title,
@@ -45,6 +53,7 @@ class Song {
     List<String>? instruments,
     String? melodyPath,
     bool clearMelody = false,
+    String? rhythmPath,
     String? remoteId,
   }) => Song(
     id: id,
@@ -53,6 +62,7 @@ class Song {
     genre: clearGenre ? null : (genre ?? this.genre),
     instruments: instruments ?? this.instruments,
     melodyPath: clearMelody ? null : (melodyPath ?? this.melodyPath),
+    rhythmPath: rhythmPath ?? this.rhythmPath,
     remoteId: remoteId ?? this.remoteId,
     addedAt: addedAt,
   );
@@ -64,6 +74,7 @@ class Song {
     'genre': genre,
     'instruments': instruments,
     'melodyPath': melodyPath,
+    'rhythmPath': rhythmPath,
     'remoteId': remoteId,
     'addedAt': addedAt.toIso8601String(),
   };
@@ -75,6 +86,7 @@ class Song {
     genre: json['genre'] as String?,
     instruments: (json['instruments'] as List?)?.cast<String>() ?? const [],
     melodyPath: json['melodyPath'] as String?,
+    rhythmPath: json['rhythmPath'] as String?,
     remoteId: json['remoteId'] as String?,
     addedAt:
         DateTime.tryParse(json['addedAt'] as String? ?? '') ??

@@ -16,6 +16,7 @@ class RemoteProject {
     this.instruments = const [],
     required this.instrumentalUrl,
     this.melodyUrl,
+    this.rhythmUrl,
     this.imported = false,
     this.downloading = false,
   });
@@ -28,11 +29,13 @@ class RemoteProject {
   /// URLs (API) de los assets para descargar.
   final String instrumentalUrl;
   final String? melodyUrl;
+  final String? rhythmUrl;
 
   bool imported;
   bool downloading;
 
-  bool get canScore => melodyUrl != null;
+  bool get canScore => melodyUrl != null || rhythmUrl != null;
+  bool get isRhythm => rhythmUrl != null && melodyUrl == null;
 }
 
 enum SyncStatus { idle, loading, ready, error }
@@ -120,6 +123,7 @@ class SyncService extends ChangeNotifier {
         final instUrl = instName == null ? null : urlByName[instName];
         if (instUrl == null) continue; // sin instrumental no sirve.
         final melName = m['melody'] as String?;
+        final rhyName = m['rhythm'] as String?;
         list.add(
           RemoteProject(
             id: m['id'] as String,
@@ -129,6 +133,7 @@ class SyncService extends ChangeNotifier {
                 (m['instruments'] as List?)?.cast<String>() ?? const [],
             instrumentalUrl: instUrl,
             melodyUrl: melName == null ? null : urlByName[melName],
+            rhythmUrl: rhyName == null ? null : urlByName[rhyName],
             imported: imported.contains(m['id']),
           ),
         );
@@ -160,17 +165,24 @@ class SyncService extends ChangeNotifier {
         await _downloadToFile(p.melodyUrl!, melodyPath);
       }
 
+      String? rhythmPath;
+      if (p.rhythmUrl != null) {
+        rhythmPath = '$base.rhythm.json';
+        await _downloadToFile(p.rhythmUrl!, rhythmPath);
+      }
+
       await _repo.addSong(
         sourcePath: instPath,
         title: p.title,
         genre: p.genre,
         instruments: p.instruments,
         melodySourcePath: melodyPath,
+        rhythmSourcePath: rhythmPath,
         remoteId: p.id,
       );
 
       // Limpieza de temporales.
-      for (final path in [instPath, melodyPath]) {
+      for (final path in [instPath, melodyPath, rhythmPath]) {
         if (path == null) continue;
         try {
           final f = File(path);

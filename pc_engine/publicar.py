@@ -155,6 +155,15 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
             meta = {}
     title = meta.get("title") or project_dir.name
     slug = _slug(title)
+    instrument = meta.get("instrument", "voz")
+    ref_kind = meta.get("referenceKind", "melody")
+    # Etiqueta de instrumento para mostrar en el celular.
+    instrument_label = {
+        "voz": "Voz",
+        "bateria": "Batería",
+        "bajo": "Bajo",
+        "otros": "Otros",
+    }.get(instrument, "Voz")
 
     melody = project_dir / "melody.json"
     rhythm = project_dir / "rhythm.json"
@@ -175,7 +184,9 @@ def publish_project(project_dir: Path, token: str, *, genre=None,
             "id": slug,
             "title": title,
             "genre": genre,
-            "instruments": instruments or [],
+            "instrument": instrument,
+            "referenceKind": ref_kind,
+            "instruments": instruments or [instrument_label],
         }
 
         log(f"Subiendo instrumental de '{title}'...")
