@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../karaoke/presentation/practice_setup_screen.dart';
 import '../../library/data/library_repository.dart';
 import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 import '../../sync/data/sync_service.dart';
-import '../../sync/presentation/sync_screen.dart';
 import '../../update/data/update_service.dart';
 import '../../update/presentation/update_screen.dart';
 
@@ -92,6 +91,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openSettings() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+  }
+
+  void _push(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
   @override
   void dispose() {
     _updateService.dispose();
@@ -109,77 +118,71 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Header(onUpdates: _openUpdates),
+              _Header(onSettings: _openSettings),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const _SectionTitle('Cantar y practicar'),
                     _MenuCard(
-                      icon: Icons.mic,
-                      color: const Color(0xFF7C4DFF),
-                      title: 'Afinación en vivo',
-                      subtitle:
-                          'Cantá y mirá tu nota y los cents en tiempo real.',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LivePitchScreen(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.library_music,
-                      color: const Color(0xFF1DB6A2),
-                      title: 'Biblioteca',
-                      subtitle: 'Tus canciones por género e instrumento.',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LibraryScreen(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.stars,
+                      icon: Icons.mic_external_on,
                       color: const Color(0xFFE0457B),
-                      title: 'Práctica con puntaje',
+                      title: 'Cantar (Karaoke)',
                       subtitle:
-                          'Cantá o tocá sobre un proyecto de la PC y puntuá.',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PracticeSetupScreen(),
+                          'Elegí una canción y cantá con puntaje o letra.',
+                      onTap: () => _push(
+                        const LibraryScreen(
+                          initialInstrument: 'Voz',
+                          titleOverride: 'Cantar',
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _MenuCard(
-                      icon: Icons.cloud_sync,
-                      color: const Color(0xFF1DB6A2),
-                      title: 'Sincronizar con la PC',
-                      subtitle:
-                          'Se bajan solas al abrir la app. Tocá para forzar.',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SyncScreen()),
                       ),
                     ),
                     const SizedBox(height: 14),
                     _MenuCard(
                       icon: Icons.music_note,
-                      color: const Color(0xFFFF8A3D),
-                      title: 'Reproducir un MP3',
-                      subtitle: 'Abrí una canción propia desde tu celular.',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const PlayerScreen()),
+                      color: const Color(0xFF1DB6A2),
+                      title: 'Practicar instrumentos',
+                      subtitle: 'Bajo, guitarra o batería con puntaje.',
+                      onTap: () => _push(
+                        const LibraryScreen(titleOverride: 'Practicar'),
                       ),
                     ),
                     const SizedBox(height: 14),
                     _MenuCard(
-                      icon: Icons.system_update,
+                      icon: Icons.graphic_eq,
+                      color: const Color(0xFF7C4DFF),
+                      title: 'Afinación en vivo',
+                      subtitle: 'Mirá tu nota y los cents en tiempo real.',
+                      onTap: () => _push(const LivePitchScreen()),
+                    ),
+                    const SizedBox(height: 24),
+                    const _SectionTitle('Tu música'),
+                    _MenuCard(
+                      icon: Icons.library_music,
                       color: const Color(0xFF4D9BFF),
-                      title: 'Actualizaciones',
+                      title: 'Biblioteca',
                       subtitle:
-                          'Buscar e instalar la última versión de la app.',
-                      onTap: _openUpdates,
+                          'Todas tus canciones, por género e instrumento.',
+                      onTap: () => _push(const LibraryScreen()),
+                    ),
+                    const SizedBox(height: 14),
+                    _MenuCard(
+                      icon: Icons.audiotrack,
+                      color: const Color(0xFFFF8A3D),
+                      title: 'Reproducir un MP3',
+                      subtitle: 'Abrí una canción propia desde tu celular.',
+                      onTap: () => _push(const PlayerScreen()),
+                    ),
+                    const SizedBox(height: 24),
+                    const _SectionTitle('Más'),
+                    _MenuCard(
+                      icon: Icons.settings,
+                      color: const Color(0xFF9AA0B4),
+                      title: 'Ajustes',
+                      subtitle:
+                          'Sincronizar con la PC, actualizar y compartir.',
+                      onTap: _openSettings,
                     ),
                   ],
                 ),
@@ -204,9 +207,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
 /// Encabezado con degradé, nombre y subtítulo de la app.
 class _Header extends StatelessWidget {
-  const _Header({required this.onUpdates});
+  const _Header({required this.onSettings});
 
-  final VoidCallback onUpdates;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -256,11 +259,34 @@ class _Header extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Actualizaciones',
-            icon: const Icon(Icons.system_update, color: Colors.white),
-            onPressed: onUpdates,
+            tooltip: 'Ajustes',
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: onSettings,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Título de sección en el inicio.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      child: Text(
+        text.toUpperCase(),
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+        ),
       ),
     );
   }

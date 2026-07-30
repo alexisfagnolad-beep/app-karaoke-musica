@@ -18,6 +18,7 @@ class KaraokeScreen extends StatefulWidget {
     this.melody,
     this.rhythm,
     this.lyrics,
+    this.freeMode = false,
   });
 
   final String instrumentalPath;
@@ -25,6 +26,9 @@ class KaraokeScreen extends StatefulWidget {
   final Melody? melody;
   final Rhythm? rhythm;
   final Lyrics? lyrics;
+
+  /// Modo "Solo letra": reproduce con barras y letra, sin micrófono ni puntaje.
+  final bool freeMode;
 
   @override
   State<KaraokeScreen> createState() => _KaraokeScreenState();
@@ -39,7 +43,11 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
     if (widget.rhythm != null) {
       _c.loadRhythmic(widget.instrumentalPath, widget.rhythm!);
     } else if (widget.melody != null) {
-      _c.loadMelodic(widget.instrumentalPath, widget.melody!);
+      _c.loadMelodic(
+        widget.instrumentalPath,
+        widget.melody!,
+        freeMode: widget.freeMode,
+      );
     }
   }
 
@@ -90,8 +98,8 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
                 style: TextStyle(color: theme.colorScheme.onErrorContainer),
               ),
             ),
-          if (!_c.isRhythm) _melodicHeader(),
-          if (!_c.isRhythm) const SizedBox(height: 12),
+          if (!_c.isRhythm && !widget.freeMode) _melodicHeader(),
+          if (!_c.isRhythm && !widget.freeMode) const SizedBox(height: 12),
           Expanded(
             child: _c.isRhythm
                 ? Center(child: _rhythmLive())
@@ -106,7 +114,11 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
             FilledButton.icon(
               onPressed: _c.start,
               icon: const Icon(Icons.play_arrow),
-              label: Text(_c.isRhythm ? 'Empezar a tocar' : 'Empezar a cantar'),
+              label: Text(
+                widget.freeMode
+                    ? 'Reproducir'
+                    : (_c.isRhythm ? 'Empezar a tocar' : 'Empezar a cantar'),
+              ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),
               ),
@@ -115,7 +127,7 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
             OutlinedButton.icon(
               onPressed: _c.stop,
               icon: const Icon(Icons.stop),
-              label: const Text('Terminar'),
+              label: Text(widget.freeMode ? 'Detener' : 'Terminar'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),
               ),

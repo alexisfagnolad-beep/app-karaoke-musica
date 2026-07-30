@@ -15,7 +15,13 @@ import '../domain/song.dart';
 
 /// Biblioteca de canciones agrupadas por género y filtrables por instrumento.
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
+  const LibraryScreen({super.key, this.initialInstrument, this.titleOverride});
+
+  /// Filtro de instrumento inicial (ej. 'Voz' para Cantar). null = sin filtro.
+  final String? initialInstrument;
+
+  /// Título de la barra (ej. 'Cantar', 'Practicar'). null = 'Biblioteca'.
+  final String? titleOverride;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -32,6 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void initState() {
     super.initState();
+    _instrument = widget.initialInstrument;
     _repo.load();
   }
 
@@ -136,6 +143,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 _practice(song);
               },
             ),
+            if (!song.isRhythm)
+              ListTile(
+                leading: const Icon(Icons.lyrics, color: Color(0xFF4D9BFF)),
+                title: const Text('Solo letra'),
+                subtitle: const Text(
+                  'Cantá tranqui con la letra, sin puntaje.',
+                ),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _practice(song, freeMode: true);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.play_arrow),
               title: const Text('Reproducir'),
@@ -161,7 +180,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _practice(Song song) {
+  void _practice(Song song, {bool freeMode = false}) {
     Melody? melody;
     Rhythm? rhythm;
     Lyrics? lyrics;
@@ -194,6 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           melody: melody,
           rhythm: rhythm,
           lyrics: lyrics,
+          freeMode: freeMode,
         ),
       ),
     );
@@ -204,7 +224,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return Scaffold(
       appBar: gradientAppBar(
         context,
-        'Biblioteca',
+        widget.titleOverride ?? 'Biblioteca',
         colors: const [AppColors.teal, AppColors.blue],
         actions: [
           PopupMenuButton<bool>(

@@ -83,9 +83,18 @@ class KaraokeController extends ChangeNotifier {
   int get direction => _direction;
   bool get finished => melodicResult != null || rhythmResult != null;
 
-  Future<void> loadMelodic(String instrumentalPath, Melody melody) async {
+  /// Modo libre ("Solo letra"): reproduce la pista con las barras y la letra
+  /// como guía, pero SIN micrófono ni puntaje.
+  bool freeMode = false;
+
+  Future<void> loadMelodic(
+    String instrumentalPath,
+    Melody melody, {
+    bool freeMode = false,
+  }) async {
     _melody = melody;
     _rhythm = null;
+    this.freeMode = freeMode;
     notes = melody.notes();
     noteLit = List<double>.filled(notes.length, 0);
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
@@ -121,6 +130,20 @@ class KaraokeController extends ChangeNotifier {
     _livePitch = null;
     if (noteLit.isNotEmpty) noteLit = List<double>.filled(notes.length, 0);
     notifyListeners();
+
+    // Modo libre: solo reproducir (sin micrófono ni puntaje).
+    if (freeMode) {
+      try {
+        _running = true;
+        await player.seek(Duration.zero);
+        player.play();
+        notifyListeners();
+      } catch (e) {
+        _error = 'No se pudo iniciar: $e';
+        notifyListeners();
+      }
+      return;
+    }
 
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
@@ -222,10 +245,18 @@ class KaraokeController extends ChangeNotifier {
   Future<void> finish() async {
     if (!_running) return;
     _running = false;
-    try {
-      await _capture.stop();
-    } catch (_) {}
+    if (!freeMode) {
+      try {
+        await _capture.stop();
+      } catch (_) {}
+    }
     await player.stop();
+
+    // Modo libre: no hay puntaje, solo termina.
+    if (freeMode) {
+      notifyListeners();
+      return;
+    }
 
     if (isRhythm) {
       rhythmResult = scoreRhythm(_rhythm!.onsets, _userOnsets);
