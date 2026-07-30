@@ -231,23 +231,39 @@ class _PianoPainter extends CustomPainter {
     // Nota que está tocando el usuario (para marcarla).
     final sung = c.livePitch?.round();
 
-    // Blancas.
+    // Blancas: SIEMPRE con su color (como los stickers de colores que se pegan
+    // en el piano real). Cuando la nota está activa, la tecla entera se pinta.
     for (var i = 0; i < whites.length; i++) {
       final midi = whites[i];
       final x = i * whiteW;
       final rect = Rect.fromLTWH(x + 1, hitLine, whiteW - 2, keyboardH);
       final active = activeMidi == midi;
-      canvas.drawRect(
-        rect,
-        Paint()
-          ..color = active ? kNoteColors[midi % 12] : const Color(0xFFF7F7FA),
+      final color = kNoteColors[midi % 12];
+      // Base blanca.
+      canvas.drawRect(rect, Paint()..color = const Color(0xFFF7F7FA));
+      // Franja de color abajo (el "sticker").
+      final bandH = keyboardH * 0.4;
+      final band = RRect.fromRectAndCorners(
+        Rect.fromLTWH(
+          x + 2,
+          hitLine + keyboardH - bandH,
+          whiteW - 4,
+          bandH - 3,
+        ),
+        bottomLeft: const Radius.circular(6),
+        bottomRight: const Radius.circular(6),
       );
-      // Nombre Do-Re-Mi (grande, para los que empiezan).
+      canvas.drawRRect(band, Paint()..color = color);
+      // Activa: se pinta toda la tecla.
+      if (active) {
+        canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.55));
+      }
+      // Nombre Do-Re-Mi sobre la franja de color.
       _label(
         canvas,
         _solfege[midi % 12] ?? '',
-        Offset(x + whiteW / 2, hitLine + keyboardH - 30),
-        active ? Colors.white : const Color(0xFF5A5A68),
+        Offset(x + whiteW / 2, hitLine + keyboardH - bandH / 2 - 10),
+        Colors.white,
         whiteW,
       );
       // Tecla que toca el usuario.
@@ -262,18 +278,24 @@ class _PianoPainter extends CustomPainter {
       }
     }
 
-    // Negras (encima).
+    // Negras (encima): también con su color, un poco más oscuro para
+    // distinguirlas; activas se pintan a full.
     final blackH = keyboardH * 0.62;
     for (var m = startMidi; m <= endMidi; m++) {
       if (_whitePc.contains(m % 12)) continue;
       final x = xForMidi(m);
       final w = whiteW * 0.6;
       final active = activeMidi == m;
+      final color = kNoteColors[m % 12];
       final rect = Rect.fromLTWH(x - w / 2, hitLine, w, blackH);
-      canvas.drawRect(
+      final rr = RRect.fromRectAndCorners(
         rect,
-        Paint()..color = active ? kNoteColors[m % 12] : const Color(0xFF20202A),
+        bottomLeft: const Radius.circular(5),
+        bottomRight: const Radius.circular(5),
       );
+      // Oscurecemos el color para que "sea" tecla negra pero se vea el color.
+      final darker = Color.lerp(color, Colors.black, 0.45)!;
+      canvas.drawRRect(rr, Paint()..color = active ? color : darker);
       if (sung == m) {
         canvas.drawRect(
           rect,
