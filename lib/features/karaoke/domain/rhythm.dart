@@ -25,7 +25,8 @@ class Rhythm {
 /// Resultado del puntaje rítmico.
 class RhythmResult {
   final double score; // 0..100
-  final double timing; // precisión temporal media de los golpes acertados (0..1)
+  final double
+  timing; // precisión temporal media de los golpes acertados (0..1)
   final double recall; // proporción de golpes de la referencia que acertaste
   final double precision; // proporción de tus golpes que cayeron en un objetivo
   final int matched;
@@ -41,7 +42,13 @@ class RhythmResult {
   });
 
   static const empty = RhythmResult(
-      score: 0, timing: 0, recall: 0, precision: 0, matched: 0, total: 0);
+    score: 0,
+    timing: 0,
+    recall: 0,
+    precision: 0,
+    matched: 0,
+    total: 0,
+  );
 
   String get label {
     if (score >= 90) return '¡Perfecto!';
@@ -142,7 +149,8 @@ class OnsetDetector {
       return false;
     }
 
-    final isHit = e > _avgEnergy * threshold &&
+    final isHit =
+        e > _avgEnergy * threshold &&
         e > 1e-5 &&
         (t - _lastOnset) >= minInterval;
 

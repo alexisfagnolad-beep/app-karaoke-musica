@@ -44,6 +44,32 @@ class KaraokeController extends ChangeNotifier {
   MelodyFrame? _target;
   int _hits = 0;
 
+  // --- Estado del juego melódico en vivo (barras estilo karaoke) ---
+  /// Notas de la melodía como barras (fraseo). Vacío en modo rítmico.
+  List<MelodyNote> notes = const [];
+
+  /// Cuánto se "iluminó" cada barra (0..1): fracción de su duración cantada
+  /// afinada. Paralelo a [notes].
+  List<double> noteLit = const [];
+
+  /// Índice de la barra activa (la que suena ahora), o null.
+  int? activeNote;
+
+  /// Nota MIDI continua que está cantando el usuario ahora, o null.
+  double? _livePitch;
+
+  /// Puntaje en vivo, va sumando mientras cantás sobre la barra.
+  double _liveScore = 0;
+
+  /// Afinación respecto de la barra activa: -1 grave (abajo), +1 agudo
+  /// (arriba), 0 afinado.
+  int _direction = 0;
+
+  double? _lastT;
+
+  /// Semitonos de tolerancia para considerar que "pegaste" la barra.
+  static const double onPitchTolerance = 1.5;
+
   KaraokeResult? melodicResult;
   RhythmResult? rhythmResult;
 
@@ -52,11 +78,16 @@ class KaraokeController extends ChangeNotifier {
   MusicalNote? get sung => _sung;
   MelodyFrame? get target => _target;
   int get hits => _hits;
+  double? get livePitch => _livePitch;
+  int get liveScore => _liveScore.floor();
+  int get direction => _direction;
   bool get finished => melodicResult != null || rhythmResult != null;
 
   Future<void> loadMelodic(String instrumentalPath, Melody melody) async {
     _melody = melody;
     _rhythm = null;
+    notes = melody.notes();
+    noteLit = List<double>.filled(notes.length, 0);
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
     player.playerStateStream.listen(_onPlayerState);
   }
@@ -83,6 +114,12 @@ class KaraokeController extends ChangeNotifier {
     _userOnsets.clear();
     _onset.reset();
     _hits = 0;
+    _liveScore = 0;
+    _direction = 0;
+    _lastT = null;
+    activeNote = null;
+    _livePitch = null;
+    if (noteLit.isNotEmpty) noteLit = List<double>.filled(notes.length, 0);
     notifyListeners();
 
     final status = await Permission.microphone.request();
@@ -97,8 +134,12 @@ class KaraokeController extends ChangeNotifier {
         await _capture.init();
         _capInited = true;
       }
-      await _capture.start(_onAudio, _onError,
-          sampleRate: sampleRate, bufferSize: bufferSize);
+      await _capture.start(
+        _onAudio,
+        _onError,
+        sampleRate: sampleRate,
+        bufferSize: bufferSize,
+      );
       _running = true;
       await player.seek(Duration.zero);
       player.play();
@@ -128,10 +169,49 @@ class KaraokeController extends ChangeNotifier {
       } else {
         _sung = null;
       }
+      _livePitch = midi;
       _samples.add(PerformanceSample(t, midi));
       _target = _melody!.frameAt(t);
+      _updateLiveGame(t, midi);
     }
     notifyListeners();
+  }
+
+  /// Actualiza barras activas, iluminación y puntaje en vivo.
+  void _updateLiveGame(double t, double? midi) {
+    final dt = _lastT == null ? 0.0 : (t - _lastT!).clamp(0.0, 0.25);
+    _lastT = t;
+
+    final idx = _noteIndexAt(t);
+    activeNote = idx;
+
+    if (idx == null || midi == null) {
+      _direction = 0;
+      return;
+    }
+
+    final diff = octaveFoldedDiff(midi, notes[idx].midi);
+    if (diff.abs() <= onPitchTolerance) {
+      _direction = 0;
+      // Iluminar la barra en proporción al tiempo cantado afinado.
+      final dur = notes[idx].duration;
+      if (dur > 0) {
+        noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
+      }
+      // Sumar puntos: más cerca de la nota y más sostenido = más puntaje.
+      final closeness = (1.0 - diff.abs() / onPitchTolerance).clamp(0.0, 1.0);
+      _liveScore += dt * (60 + 40 * closeness);
+    } else {
+      _direction = diff > 0 ? 1 : -1; // agudo (arriba) / grave (abajo).
+    }
+  }
+
+  /// Índice de la barra que suena en el instante [t], o null.
+  int? _noteIndexAt(double t) {
+    for (var i = 0; i < notes.length; i++) {
+      if (t >= notes[i].startT && t < notes[i].endT) return i;
+    }
+    return null;
   }
 
   void _onError(Object e) {

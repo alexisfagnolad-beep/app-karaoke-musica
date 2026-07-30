@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 
-import '../../pitch/domain/musical_note.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
-import '../domain/scoring.dart';
+import 'pitch_roll_view.dart';
 
 /// Pantalla de práctica con puntaje: reproduce el instrumental, muestra la guía
 /// en vivo (nota objetivo vs tu nota, o los golpes) y al final el puntaje.
@@ -46,11 +44,6 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
     super.dispose();
   }
 
-  static String _midiName(int midi) {
-    final name = MusicalNote.noteNames[midi % 12];
-    return '$name${midi ~/ 12 - 1}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,77 +67,134 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
   Widget _practiceView() {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           if (_c.error != null)
             Container(
               width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: theme.colorScheme.errorContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(_c.error!,
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer)),
+              child: Text(
+                _c.error!,
+                style: TextStyle(color: theme.colorScheme.onErrorContainer),
+              ),
             ),
-          const Spacer(),
-          if (_c.isRhythm) _rhythmLive() else _melodicLive(),
-          const Spacer(),
+          if (!_c.isRhythm) _melodicHeader(),
+          if (!_c.isRhythm) const SizedBox(height: 12),
+          Expanded(
+            child: _c.isRhythm
+                ? Center(child: _rhythmLive())
+                : PitchRollView(controller: _c),
+          ),
+          const SizedBox(height: 12),
           _progressBar(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           if (!_c.running)
             FilledButton.icon(
               onPressed: _c.start,
               icon: const Icon(Icons.play_arrow),
               label: Text(_c.isRhythm ? 'Empezar a tocar' : 'Empezar a cantar'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+              ),
             )
           else
             OutlinedButton.icon(
               onPressed: _c.stop,
               icon: const Icon(Icons.stop),
               label: const Text('Terminar'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+              ),
             ),
         ],
       ),
     );
   }
 
-  Widget _melodicLive() {
+  /// Encabezado del modo melódico: puntaje en vivo + indicador de afinación.
+  Widget _melodicHeader() {
     final theme = Theme.of(context);
-    final target = _c.target;
-    final sung = _c.sung;
-
-    var close = false;
-    if (target?.midi != null && sung != null) {
-      close = octaveFoldedDiff(sung.midi.toDouble(), target!.midi!).abs() < 1.0;
-    }
-    final targetText =
-        (target != null && target.voiced && target.midi != null)
-            ? _midiName(target.midi!)
-            : '–';
-    final sungText = sung?.name != null ? '${sung!.name}${sung.octave}' : '–';
-
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('Nota objetivo', style: theme.textTheme.titleMedium),
-        Text(targetText,
-            style: theme.textTheme.displayLarge?.copyWith(
-                fontSize: 96, fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary)),
-        const SizedBox(height: 24),
-        Text('Tu voz', style: theme.textTheme.titleMedium),
-        Text(sungText,
-            style: theme.textTheme.displayMedium?.copyWith(
-                fontSize: 64,
-                color: close ? Colors.greenAccent : theme.colorScheme.onSurface)),
-        const SizedBox(height: 8),
-        Icon(close ? Icons.check_circle : Icons.circle_outlined,
-            color: close ? Colors.greenAccent : theme.colorScheme.outline,
-            size: 32),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Puntos',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            Text(
+              '${_c.liveScore}',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        _tuningChip(),
       ],
+    );
+  }
+
+  Widget _tuningChip() {
+    final theme = Theme.of(context);
+    late final IconData icon;
+    late final String text;
+    late final Color color;
+
+    if (!_c.running) {
+      icon = Icons.multitrack_audio;
+      text = 'Cantá sobre las barras';
+      color = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    } else if (_c.livePitch == null) {
+      icon = Icons.mic_none;
+      text = 'Sin voz';
+      color = theme.colorScheme.onSurface.withValues(alpha: 0.5);
+    } else if (_c.direction == 0) {
+      icon = Icons.check_circle;
+      text = 'Afinado';
+      color = const Color(0xFF4AE3B5);
+    } else if (_c.direction > 0) {
+      icon = Icons.keyboard_arrow_up;
+      text = 'Agudo';
+      color = const Color(0xFFFFB74D);
+    } else {
+      icon = Icons.keyboard_arrow_down;
+      text = 'Grave';
+      color = const Color(0xFFFFB74D);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -161,7 +211,8 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
               ? 'Tocá siguiendo el ritmo de la canción'
               : 'Tocá "Empezar" y seguí el ritmo',
           style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
         ),
       ],
     );
@@ -189,8 +240,12 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
   // ---------- Resultado ----------
   Widget _resultView() {
     final theme = Theme.of(context);
-    final score = _c.isRhythm ? _c.rhythmResult!.score : _c.melodicResult!.score;
-    final label = _c.isRhythm ? _c.rhythmResult!.label : _c.melodicResult!.label;
+    final score = _c.isRhythm
+        ? _c.rhythmResult!.score
+        : _c.melodicResult!.score;
+    final label = _c.isRhythm
+        ? _c.rhythmResult!.label
+        : _c.melodicResult!.label;
 
     final details = _c.isRhythm
         ? [
@@ -210,11 +265,14 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         children: [
           Text(label, style: theme.textTheme.headlineSmall),
           const SizedBox(height: 12),
-          Text(score.toStringAsFixed(0),
-              style: theme.textTheme.displayLarge?.copyWith(
-                  fontSize: 120,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary)),
+          Text(
+            score.toStringAsFixed(0),
+            style: theme.textTheme.displayLarge?.copyWith(
+              fontSize: 120,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
           Text('puntos', style: theme.textTheme.titleMedium),
           const SizedBox(height: 32),
           ...details,
@@ -256,8 +314,10 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Text('${(value01 * 100).toStringAsFixed(0)}%',
-              style: theme.textTheme.bodyMedium),
+          Text(
+            '${(value01 * 100).toStringAsFixed(0)}%',
+            style: theme.textTheme.bodyMedium,
+          ),
         ],
       ),
     );

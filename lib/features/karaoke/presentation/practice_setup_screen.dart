@@ -44,7 +44,8 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     final path = result?.files.single.path;
     if (path == null) return;
     try {
-      final data = json.decode(File(path).readAsStringSync()) as Map<String, dynamic>;
+      final data =
+          json.decode(File(path).readAsStringSync()) as Map<String, dynamic>;
       Melody? melody;
       Rhythm? rhythm;
       if (data.containsKey('frames')) {
@@ -69,14 +70,16 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       _instrumentalPath != null && (_melody != null || _rhythm != null);
 
   void _start() {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => KaraokeScreen(
-        instrumentalPath: _instrumentalPath!,
-        title: _instrumentalName ?? 'Práctica',
-        melody: _melody,
-        rhythm: _rhythm,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => KaraokeScreen(
+          instrumentalPath: _instrumentalPath!,
+          title: _instrumentalName ?? 'Práctica',
+          melody: _melody,
+          rhythm: _rhythm,
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -85,11 +88,14 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     final mode = _rhythm != null
         ? 'Ritmo (batería)'
         : _melody != null
-            ? 'Melódico (voz / instrumento)'
-            : null;
+        ? 'Melódico (voz / instrumento)'
+        : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Práctica con puntaje'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Práctica con puntaje'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
@@ -124,7 +130,9 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
               onPressed: _ready ? _start : null,
               icon: const Icon(Icons.play_arrow),
               label: const Text('Empezar'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+              ),
             ),
           ],
         ),

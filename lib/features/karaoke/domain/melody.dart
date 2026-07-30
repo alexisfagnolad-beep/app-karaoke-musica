@@ -6,7 +6,27 @@ class MelodyFrame {
   final int? midi; // nota MIDI objetivo, o null si no hay voz
   final bool voiced;
 
-  const MelodyFrame({required this.t, required this.midi, required this.voiced});
+  const MelodyFrame({
+    required this.t,
+    required this.midi,
+    required this.voiced,
+  });
+}
+
+/// Una nota sostenida de la melodía: una barra del karaoke. Su duración
+/// (endT - startT) refleja el fraseo — notas largas = barras largas.
+class MelodyNote {
+  final double startT;
+  final double endT;
+  final int midi;
+
+  const MelodyNote({
+    required this.startT,
+    required this.endT,
+    required this.midi,
+  });
+
+  double get duration => endT - startT;
 }
 
 /// Melodía de referencia generada por la PC (`melody.json`): la nota que debería
@@ -58,4 +78,60 @@ class Melody {
   double get durationSeconds => frames.isEmpty ? 0 : frames.last.t;
 
   bool get hasVoice => frames.any((f) => f.voiced && f.midi != null);
+
+  /// Agrupa los cuadros en notas sostenidas (barras del karaoke): tramos
+  /// contiguos con la misma nota MIDI. Notas más largas → barras más largas
+  /// (respeta el fraseo). Descarta tramos muy cortos (jitter del análisis).
+  ///
+  /// [minDuration]: dura­ción mínima (seg) para que un tramo cuente como nota.
+  /// [maxGap]: hueco máximo (seg) que se "puentea" entre dos tramos de la
+  /// misma nota (para no cortar una nota por micro-silencios del análisis).
+  List<MelodyNote> notes({double minDuration = 0.11, double maxGap = 0.12}) {
+    final result = <MelodyNote>[];
+    final dt = fps > 0 ? 1.0 / fps : 0.02;
+
+    int? curMidi;
+    double? start;
+    double? lastVoicedT;
+
+    void close() {
+      if (curMidi != null && start != null && lastVoicedT != null) {
+        final end = lastVoicedT! + dt;
+        if (end - start! >= minDuration) {
+          result.add(MelodyNote(startT: start!, endT: end, midi: curMidi!));
+        }
+      }
+      curMidi = null;
+      start = null;
+      lastVoicedT = null;
+    }
+
+    for (final f in frames) {
+      final voiced = f.voiced && f.midi != null;
+      if (!voiced) {
+        // Silencio: cerramos salvo que sea un hueco corto dentro de la nota.
+        if (curMidi != null &&
+            lastVoicedT != null &&
+            f.t - lastVoicedT! <= maxGap) {
+          continue; // puenteamos el micro-silencio.
+        }
+        close();
+        continue;
+      }
+      if (curMidi == null) {
+        curMidi = f.midi;
+        start = f.t;
+        lastVoicedT = f.t;
+      } else if (f.midi == curMidi) {
+        lastVoicedT = f.t;
+      } else {
+        close();
+        curMidi = f.midi;
+        start = f.t;
+        lastVoicedT = f.t;
+      }
+    }
+    close();
+    return result;
+  }
 }
