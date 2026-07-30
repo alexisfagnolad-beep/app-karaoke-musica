@@ -28,6 +28,7 @@ class DrumLearnScreen extends StatefulWidget {
 
 class _DrumLearnScreenState extends State<DrumLearnScreen> {
   final KaraokeController _c = KaraokeController();
+  bool _fullKit = false;
 
   @override
   void initState() {
@@ -59,7 +60,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              DrumLearnView(controller: _c),
+              DrumLearnView(controller: _c, fullKit: _fullKit),
               _overlay(),
             ],
           );
@@ -90,6 +91,14 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+                IconButton(
+                  tooltip: _fullKit ? 'Batería simple' : 'Batería completa',
+                  icon: Icon(
+                    _fullKit ? Icons.grid_view : Icons.apps,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => setState(() => _fullKit = !_fullKit),
                 ),
                 TempoButton(controller: _c, dark: true),
                 Text(

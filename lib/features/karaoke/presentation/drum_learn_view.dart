@@ -6,9 +6,16 @@ import '../data/karaoke_controller.dart';
 /// carriles que terminan en una batería dibujada abajo. Cuando la nota llega,
 /// el chico golpea esa parte real; la parte se ilumina en la app.
 class DrumLearnView extends StatefulWidget {
-  const DrumLearnView({super.key, required this.controller});
+  const DrumLearnView({
+    super.key,
+    required this.controller,
+    this.fullKit = false,
+  });
 
   final KaraokeController controller;
+
+  /// true dibuja una batería completa (toms, crash, ride); false, un set simple.
+  final bool fullKit;
 
   @override
   State<DrumLearnView> createState() => _DrumLearnViewState();
@@ -33,7 +40,11 @@ class _DrumLearnViewState extends State<DrumLearnView>
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _DrumLearnPainter(widget.controller, _ticker),
+          painter: _DrumLearnPainter(
+            widget.controller,
+            _ticker,
+            widget.fullKit,
+          ),
           size: Size.infinite,
         ),
         _buildCountIn(),
@@ -78,9 +89,11 @@ class _DrumLearnViewState extends State<DrumLearnView>
 }
 
 class _DrumLearnPainter extends CustomPainter {
-  _DrumLearnPainter(this.c, Listenable repaint) : super(repaint: repaint);
+  _DrumLearnPainter(this.c, Listenable repaint, this.fullKit)
+    : super(repaint: repaint);
 
   final KaraokeController c;
+  final bool fullKit;
 
   static const double lookahead = 2.2;
 
@@ -173,24 +186,81 @@ class _DrumLearnPainter extends CustomPainter {
   ) {
     final w = size.width;
     final h = size.height;
+    const grey = Color(0xFF3A3A46);
 
-    // Platillos decorativos (crash) arriba a los costados.
+    if (fullKit) {
+      // Batería completa (front view). Solo bombo/redoblante/hi-hat se
+      // iluminan (son los que la IA distingue); el resto es decorativo.
+      // Platillos.
+      _cymbal(
+        canvas,
+        Offset(w * 0.20, top + (h - top) * 0.12),
+        w * 0.11,
+        grey,
+        false,
+      ); // crash
+      _cymbal(
+        canvas,
+        Offset(w * 0.80, top + (h - top) * 0.10),
+        w * 0.12,
+        grey,
+        false,
+      ); // ride
+      // Hi-hat (activo).
+      _cymbal(
+        canvas,
+        Offset(w * 0.66, top + (h - top) * 0.28),
+        w * 0.10,
+        colors[2],
+        active[2] || userFlash,
+      );
+      _label(canvas, 'Hi-hat', Offset(w * 0.66, top + (h - top) * 0.28));
+      // Toms (decorativos).
+      _drum(canvas, Offset(w * 0.42, h * 0.72), w * 0.06, grey, false);
+      _drum(canvas, Offset(w * 0.58, h * 0.72), w * 0.06, grey, false);
+      _drum(
+        canvas,
+        Offset(w * 0.86, h * 0.80),
+        w * 0.075,
+        grey,
+        false,
+      ); // floor
+      // Redoblante (activo).
+      _drum(
+        canvas,
+        Offset(w * 0.28, h * 0.80),
+        w * 0.07,
+        colors[1],
+        active[1] || userFlash,
+      );
+      _label(canvas, 'Redob.', Offset(w * 0.28, h * 0.80));
+      // Bombo (activo, grande, centro).
+      _drum(
+        canvas,
+        Offset(w * 0.5, h * 0.88),
+        w * 0.11,
+        colors[0],
+        active[0] || userFlash,
+      );
+      _label(canvas, 'Bombo', Offset(w * 0.5, h * 0.88));
+      return;
+    }
+
+    // Set simple: 3 piezas grandes.
     _cymbal(
       canvas,
       Offset(w * 0.14, top + (h - top) * 0.18),
       w * 0.11,
-      const Color(0xFF3A3A46),
+      grey,
       false,
     );
     _cymbal(
       canvas,
       Offset(w * 0.86, top + (h - top) * 0.18),
       w * 0.11,
-      const Color(0xFF3A3A46),
+      grey,
       false,
     );
-
-    // Hi-hat (carril 2, derecha).
     _cymbal(
       canvas,
       Offset(w * 0.72, top + (h - top) * 0.30),
@@ -199,8 +269,6 @@ class _DrumLearnPainter extends CustomPainter {
       active[2] || userFlash,
     );
     _label(canvas, names[2], Offset(w * 0.72, top + (h - top) * 0.30));
-
-    // Redoblante (carril 1, izquierda).
     _drum(
       canvas,
       Offset(w * 0.28, h * 0.82),
@@ -209,8 +277,6 @@ class _DrumLearnPainter extends CustomPainter {
       active[1] || userFlash,
     );
     _label(canvas, names[1], Offset(w * 0.28, h * 0.82));
-
-    // Bombo (carril 0, centro, grande).
     _drum(
       canvas,
       Offset(w * 0.5, h * 0.86),
