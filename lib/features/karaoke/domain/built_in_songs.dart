@@ -46,6 +46,25 @@ List<MelodyNote> _mel(List<List<num>> seq, double bpm, {double lead = 4}) {
   ];
 }
 
+// [midi, durBeats] en secuencia (los tiempos se acumulan solos). midi <= 0 es
+// un silencio. Más simple y menos propenso a errores para melodías largas.
+List<MelodyNote> _melSeq(List<List<num>> seq, double bpm, {double lead = 4}) {
+  final spb = 60.0 / bpm;
+  final out = <MelodyNote>[];
+  var beat = lead;
+  for (final e in seq) {
+    final midi = e[0].toInt();
+    final dur = e[1].toDouble();
+    if (midi > 0) {
+      out.add(
+        MelodyNote(startT: spb * beat, endT: spb * (beat + dur), midi: midi),
+      );
+    }
+    beat += dur;
+  }
+  return out;
+}
+
 double _dur(List<MelodyNote> n) => n.isEmpty ? 0.0 : n.last.endT + 1.0;
 
 BuiltInSong _song(
@@ -55,6 +74,21 @@ BuiltInSong _song(
   double bpm,
 ) {
   final notes = _mel(seq, bpm);
+  return BuiltInSong(
+    title: title,
+    icon: icon,
+    notes: notes,
+    duration: _dur(notes),
+  );
+}
+
+BuiltInSong _songSeq(
+  String title,
+  IconData icon,
+  List<List<num>> seq,
+  double bpm,
+) {
+  final notes = _melSeq(seq, bpm);
   return BuiltInSong(
     title: title,
     icon: icon,
@@ -125,13 +159,45 @@ final List<BuiltInSong> builtInSongs = [
     [74, 22, 1],
     [72, 23, 2],
   ], 84),
+  // Fray Santiago / Martinillo (canon, dominio público). [midi, duración].
+  _songSeq('Fray Santiago', Icons.notifications, const [
+    [60, 1], [62, 1], [64, 1], [60, 1],
+    [60, 1], [62, 1], [64, 1], [60, 1],
+    [64, 1], [65, 1], [67, 2],
+    [64, 1], [65, 1], [67, 2],
+    [67, .5], [69, .5], [67, .5], [65, .5], [64, 1], [60, 1],
+    [67, .5], [69, .5], [67, .5], [65, .5], [64, 1], [60, 1],
+    [60, 1], [55, 1], [60, 2],
+    [60, 1], [55, 1], [60, 2],
+  ], 74),
+  // "Mari tenía un corderito" (Mary had a little lamb).
+  _songSeq('El corderito', Icons.pets, const [
+    [64, 1], [62, 1], [60, 1], [62, 1], [64, 1], [64, 1], [64, 2],
+    [62, 1], [62, 1], [62, 2], [64, 1], [67, 1], [67, 2],
+    [64, 1], [62, 1], [60, 1], [62, 1], [64, 1], [64, 1], [64, 1],
+    [64, 1], [62, 1], [62, 1], [64, 1], [62, 1], [60, 2],
+  ], 88),
+  // "Que llueva" (versión sencilla de terceras, para cantar fácil).
+  _songSeq('Que llueva', Icons.water_drop, const [
+    [67, 1], [64, 1], [67, 1], [64, 1],
+    [69, 1], [67, 1], [65, 1], [64, 1],
+    [67, 1], [64, 1], [67, 1], [64, 1],
+    [69, 1], [67, 1], [64, 2],
+    [60, 1], [62, 1], [64, 1], [65, 1], [67, 2],
+  ], 82),
 ];
 
-Rhythm _pattern(double bpm, int bars, List<List<num>> perBar, double lead) {
+Rhythm _pattern(
+  double bpm,
+  int bars,
+  List<List<num>> perBar,
+  double lead, {
+  double barBeats = 4,
+}) {
   final spb = 60.0 / bpm;
   final hits = <RhythmHit>[];
   for (var bar = 0; bar < bars; bar++) {
-    final base = bar * 4.0 + lead;
+    final base = bar * barBeats + lead;
     for (final e in perBar) {
       hits.add(RhythmHit((base + e[0]) * spb, e[1].toInt()));
     }
@@ -148,6 +214,24 @@ BuiltInPattern _pat(
   List<List<num>> perBar,
 ) {
   final r = _pattern(bpm, bars, perBar, 4);
+  return BuiltInPattern(
+    title: title,
+    icon: icon,
+    rhythm: r,
+    duration: (r.onsets.isEmpty ? 0 : r.onsets.last) + 1.0,
+  );
+}
+
+// Patrón en compás de 3 tiempos (3/4), para el folclore (chacarera, gato,
+// zamba). Un compás de entrada de 3 tiempos para la cuenta.
+BuiltInPattern _patFolk(
+  String title,
+  IconData icon,
+  double bpm,
+  int bars,
+  List<List<num>> perBar,
+) {
+  final r = _pattern(bpm, bars, perBar, 3, barBeats: 3);
   return BuiltInPattern(
     title: title,
     icon: icon,
@@ -179,5 +263,21 @@ final List<BuiltInPattern> builtInPatterns = [
     [1, 1],
     [2, 0],
     [3, 1],
+  ]),
+  // --- Folclore argentino (3/4, versiones simplificadas para practicar) ---
+  // Chacarera: bombo con el "golpe" característico y madera (redoblante).
+  _patFolk('Chacarera', Icons.local_fire_department, 80, 4, const [
+    [0, 0], [1.5, 0], [2, 0], // bombo
+    [1, 1], [2.5, 1], // madera / redoblante
+  ]),
+  // Gato: vivo, acento en 1 y 3.
+  _patFolk('Gato', Icons.pets, 92, 4, const [
+    [0, 0], [2, 0], // bombo
+    [1, 1], [1.5, 1], [2.5, 1], // redoblante
+  ]),
+  // Zamba: más lenta y cadenciosa (6/8 sentido en 3 tiempos).
+  _patFolk('Zamba', Icons.favorite, 72, 4, const [
+    [0, 0], [1.5, 0], // bombo
+    [1, 1], [2, 1], [2.5, 1], // redoblante
   ]),
 ];

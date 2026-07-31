@@ -58,8 +58,8 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         widget.instrumentalPath,
         widget.melody!,
         freeMode: widget.freeMode,
-        // Piano arranca en Fácil (melodía principal resumida, para empezar de cero).
-        difficulty: widget.pianoView ? 0 : 1,
+        // Arranca en Fácil: barras largas y pegadas, línea melódica amigable.
+        difficulty: 0,
       );
     }
   }

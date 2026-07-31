@@ -53,12 +53,53 @@ class ToneSynth {
     return _wav(buf);
   }
 
-  /// Una nota suelta (para tocar el piano en pantalla).
+  /// Una nota suelta corta (decae sola).
   static Uint8List noteTone(int midi) {
     final buf = Float64List((0.6 * sr).ceil());
     _addTone(buf, 0, 0.55, _freq(midi), 0.6);
     _normalize(buf, 0.9);
     return _wav(buf);
+  }
+
+  /// Una nota SOSTENIDA (para tocar el piano en pantalla y mantenerla apretada):
+  /// se mantiene mientras dure y se corta al soltar la tecla.
+  static Uint8List sustainedTone(int midi, {double seconds = 2.6}) {
+    final buf = Float64List((seconds * sr).ceil());
+    _addSustained(buf, seconds, _freq(midi), 0.55);
+    _normalize(buf, 0.9);
+    return _wav(buf);
+  }
+
+  static void _addSustained(
+    Float64List buf,
+    double dur,
+    double freq,
+    double gain,
+  ) {
+    final len = (dur * sr).round();
+    final attack = 0.01 * sr;
+    final release = 0.18 * sr;
+    for (var i = 0; i < len; i++) {
+      if (i >= buf.length) break;
+      final t = i / sr;
+      double env;
+      if (i < attack) {
+        env = i / attack;
+      } else {
+        final rel = len - i;
+        env = rel < release ? rel / release : 1.0;
+      }
+      env *= 0.85 + 0.15 * math.exp(-0.8 * t); // leve caída, más natural
+      final ph = 2 * math.pi * freq * t;
+      final v =
+          (math.sin(ph) +
+              0.3 * math.sin(2 * ph) +
+              0.12 * math.sin(3 * ph) +
+              0.06 * math.sin(4 * ph)) *
+          gain *
+          env;
+      buf[i] += v;
+    }
   }
 
   /// Un golpe suelto (para tocar la batería en pantalla). band: 0 bombo,

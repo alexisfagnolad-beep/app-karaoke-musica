@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/karaoke_controller.dart';
 
+const Color _kHit = Color(0xFF4AE3B5);
+
 /// Vista de batería estilo Guitar Hero (horizontal): notas cayendo por
 /// carriles que terminan en una batería dibujada abajo. Cuando la nota llega,
 /// el chico golpea esa parte real; la parte se ilumina en la app.
@@ -61,12 +63,10 @@ class _DrumLearnViewState extends State<DrumLearnView>
   }
 
   /// Tocar una pieza en pantalla: izquierda = redoblante, centro = bombo,
-  /// derecha = hi-hat. Solo en "Para empezar" (play-along).
+  /// derecha = hi-hat.
   void _onTap(double dx, double width) {
-    final c = widget.controller;
-    if (!c.playAlong) return;
     final band = dx < width * 0.39 ? 1 : (dx < width * 0.61 ? 0 : 2);
-    c.tapDrum(band);
+    widget.controller.tapDrum(band);
   }
 
   Widget _buildCountIn() {
@@ -150,27 +150,38 @@ class _DrumLearnPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, hitLine), laneGuide);
     }
 
-    // Qué parte está activa (golpe llegando ~ahora).
-    final active = <bool>[false, false, false];
-    for (final h in hits) {
-      final band = h.band.clamp(0, 2);
-      if ((h.t - pos).abs() < 0.09) active[band] = true;
-    }
+    // Encendido de cada pieza: SOLO si acertaste (golpe virtual o físico) cerca
+    // del objetivo. Si nadie toca, nada se ilumina (ni el kit ni la nota).
+    final lit = <bool>[
+      for (var i = 0; i < 3; i++)
+        c.lastBandHitT[i] >= 0 && (pos - c.lastBandHitT[i]) < 0.22,
+    ];
 
-    // Notas cayendo.
+    // Notas cayendo (brillan solo si esa pieza fue acertada al pasar).
     for (final h in hits) {
       final y = yForTime(h.t);
       if (y < -30 || y > hitLine + 4) continue;
       final band = h.band.clamp(0, 2);
       final x = laneX[band]!;
       final r = (size.width * 0.022).clamp(10.0, 26.0);
+      final cy = y.clamp(0.0, hitLine);
+      final glow = lit[band] && (h.t - pos).abs() < 0.25;
+      if (glow) {
+        canvas.drawCircle(
+          Offset(x, cy),
+          r + 5,
+          Paint()
+            ..color = _kHit
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        );
+      }
       canvas.drawCircle(
-        Offset(x, y.clamp(0.0, hitLine)),
+        Offset(x, cy),
         r,
-        Paint()..color = colors[band],
+        Paint()..color = glow ? _kHit : colors[band],
       );
       canvas.drawCircle(
-        Offset(x, y.clamp(0.0, hitLine)),
+        Offset(x, cy),
         r,
         Paint()
           ..style = PaintingStyle.stroke
@@ -188,18 +199,13 @@ class _DrumLearnPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
 
-    // Flash del golpe del usuario.
-    final userFlash = c.lastUserHitT >= 0 && (pos - c.lastUserHitT) < 0.12;
-
-    // Encendido de cada pieza: llega un golpe, golpe del mic, o toque en
-    // pantalla de esa pieza.
-    final lit = <bool>[
-      for (var i = 0; i < 3; i++)
-        active[i] || userFlash || c.tappedBand == i,
-    ];
-
     // --- Batería dibujada abajo ---
     _drawKit(canvas, size, hitLine, lit);
+
+    // Cartel rápido de "¡Bien!" al acertar.
+    if (c.lastHitT >= 0 && (pos - c.lastHitT) >= 0 && (pos - c.lastHitT) < 0.6) {
+      _flash(canvas, size, '¡Bien! ✨');
+    }
   }
 
   void _drawKit(Canvas canvas, Size size, double top, List<bool> lit) {
@@ -307,10 +313,20 @@ class _DrumLearnPainter extends CustomPainter {
   }
 
   void _drum(Canvas canvas, Offset c, double r, Color color, bool on) {
+    if (on) {
+      // Brillo fuerte al acertar.
+      canvas.drawCircle(
+        c,
+        r + 8,
+        Paint()
+          ..color = _kHit
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+    }
     canvas.drawCircle(
       c,
       r,
-      Paint()..color = on ? color : Color.lerp(color, Colors.black, 0.55)!,
+      Paint()..color = on ? _kHit : Color.lerp(color, Colors.black, 0.55)!,
     );
     canvas.drawCircle(
       c,
@@ -324,9 +340,17 @@ class _DrumLearnPainter extends CustomPainter {
 
   void _cymbal(Canvas canvas, Offset c, double rx, Color color, bool on) {
     final rect = Rect.fromCenter(center: c, width: rx * 2, height: rx * 0.7);
+    if (on) {
+      canvas.drawOval(
+        Rect.fromCenter(center: c, width: rx * 2.3, height: rx * 0.9),
+        Paint()
+          ..color = _kHit
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+    }
     canvas.drawOval(
       rect,
-      Paint()..color = on ? color : Color.lerp(color, Colors.black, 0.5)!,
+      Paint()..color = on ? _kHit : Color.lerp(color, Colors.black, 0.5)!,
     );
     canvas.drawOval(
       rect,
@@ -335,6 +359,21 @@ class _DrumLearnPainter extends CustomPainter {
         ..strokeWidth = on ? 4 : 2
         ..color = on ? Colors.white : Colors.white24,
     );
+  }
+
+  void _flash(Canvas canvas, Size size, String s) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: s,
+        style: const TextStyle(
+          color: _kHit,
+          fontSize: 30,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(size.width / 2 - tp.width / 2, size.height * 0.1));
   }
 
   void _label(Canvas canvas, String s, Offset center) {

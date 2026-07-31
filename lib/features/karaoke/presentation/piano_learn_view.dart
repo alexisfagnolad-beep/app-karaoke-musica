@@ -16,9 +16,12 @@ const Map<int, String> _solfege = {
 // Grado diatónico dentro de la octava (para ubicar la nota en el pentagrama).
 const Map<int, int> _degree = {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6};
 
+const Color _kHit = Color(0xFF4AE3B5);
+
 /// Vista de piano estilo Yousician (horizontal): pentagrama arriba con las
-/// notas fluyendo de derecha a izquierda, y un teclado realista abajo con las
-/// teclas de colores que se encienden cuando hay que tocarlas.
+/// notas fluyendo de derecha a izquierda, y un teclado realista abajo. Se puede
+/// tocar con los dedos (multitáctil, notas sostenidas); si tocás justo la nota
+/// al pasar por la línea, la tecla y la nota brillan.
 class PianoLearnView extends StatefulWidget {
   const PianoLearnView({super.key, required this.controller});
 
@@ -35,10 +38,29 @@ class _PianoLearnViewState extends State<PianoLearnView>
     duration: const Duration(seconds: 1),
   )..repeat();
 
+  // Dedo (pointer) -> nota MIDI que está apretando (para el multitáctil).
+  final Map<int, int> _pointerMidi = {};
+
   @override
   void dispose() {
+    for (final e in _pointerMidi.entries) {
+      widget.controller.noteOff(e.key, e.value);
+    }
+    _pointerMidi.clear();
     _ticker.dispose();
     super.dispose();
+  }
+
+  void _onDown(PointerDownEvent e, Size size) {
+    final midi = _keyAt(e.localPosition, size);
+    if (midi == null) return;
+    _pointerMidi[e.pointer] = midi;
+    widget.controller.noteOn(e.pointer, midi);
+  }
+
+  void _onUp(int pointer) {
+    final midi = _pointerMidi.remove(pointer);
+    if (midi != null) widget.controller.noteOff(pointer, midi);
   }
 
   @override
@@ -46,9 +68,11 @@ class _PianoLearnViewState extends State<PianoLearnView>
     return LayoutBuilder(
       builder: (context, cons) {
         final size = Size(cons.maxWidth, cons.maxHeight);
-        return GestureDetector(
+        return Listener(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => _onTap(d.localPosition, size),
+          onPointerDown: (e) => _onDown(e, size),
+          onPointerUp: (e) => _onUp(e.pointer),
+          onPointerCancel: (e) => _onUp(e.pointer),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -64,13 +88,12 @@ class _PianoLearnViewState extends State<PianoLearnView>
     );
   }
 
-  /// Tocar una tecla en pantalla: mapea el toque a la nota y la hace sonar.
-  /// Solo en modo "Para empezar" (play-along).
-  void _onTap(Offset p, Size size) {
+  /// Mapea un toque a la tecla del teclado dibujado (o null si es el pentagrama).
+  int? _keyAt(Offset p, Size size) {
     final c = widget.controller;
-    if (!c.playAlong || c.notes.isEmpty) return;
+    if (c.notes.isEmpty) return null;
     final top = size.height * 0.52;
-    if (p.dy < top) return;
+    if (p.dy < top) return null;
 
     var minMidi = c.notes.first.midi;
     var maxMidi = minMidi;
@@ -90,7 +113,7 @@ class _PianoLearnViewState extends State<PianoLearnView>
     for (var m = startMidi; m <= endMidi; m++) {
       if (_whitePc.contains(m % 12)) whites.add(m);
     }
-    if (whites.isEmpty) return;
+    if (whites.isEmpty) return null;
 
     final whiteW = size.width / whites.length;
     final kbH = size.height - top;
@@ -103,13 +126,10 @@ class _PianoLearnViewState extends State<PianoLearnView>
       if (wi < 0) continue;
       final cx = (wi + 1) * whiteW;
       final w = whiteW * 0.58;
-      if (p.dy <= top + blackH && (p.dx - cx).abs() <= w / 2) {
-        c.tapNote(m);
-        return;
-      }
+      if (p.dy <= top + blackH && (p.dx - cx).abs() <= w / 2) return m;
     }
     final idx = (p.dx / whiteW).floor().clamp(0, whites.length - 1);
-    c.tapNote(whites[idx]);
+    return whites[idx];
   }
 
   Widget _buildCountIn() {
@@ -167,7 +187,6 @@ class _LearnPainter extends CustomPainter {
     final notes = c.notes;
     if (notes.isEmpty) return;
 
-    // Fondo.
     canvas.drawRect(
       Offset.zero & size,
       Paint()..color = const Color(0xFF0F0E16),
@@ -183,15 +202,13 @@ class _LearnPainter extends CustomPainter {
     final staffAreaH = keyboardTop;
     final staffSpace = (staffAreaH / 10).clamp(12.0, 30.0);
     final half = staffSpace / 2;
-    final middleY = staffAreaH * 0.52; // línea del medio (Si4, dindex 41).
+    final middleY = staffAreaH * 0.52;
     double yForD(int d) => middleY - (d - 41) * half;
 
-    // Fondo claro del pentagrama.
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, keyboardTop),
       Paint()..color = const Color(0xFF1B1A24),
     );
-    // 5 líneas (E4,G4,B4,D5,F5 = dindex 37,39,41,43,45).
     final linePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.25)
       ..strokeWidth = 1.5;
@@ -200,25 +217,33 @@ class _LearnPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
     }
 
-    // Notas fluyendo (barras de color sobre el pentagrama).
+    // Notas fluyendo (barras de color). Si ya fueron acertadas, brillan.
     final noteH = staffSpace * 0.95;
-    for (final n in notes) {
+    for (var i = 0; i < notes.length; i++) {
+      final n = notes[i];
       final x0 = xForTime(n.startT);
       final x1 = xForTime(n.endT);
       if (x1 < -8 || x0 > size.width + 8) continue;
       final d = _dindex(n.midi);
       final y = yForD(d);
-      final color = kNoteColors[n.midi % 12];
+      final hit = i < c.noteHit.length && c.noteHit[i];
+      final color = hit ? _kHit : kNoteColors[n.midi % 12];
 
-      // Líneas adicionales (ledger) si la nota se sale del pentagrama.
       _ledgerLines(canvas, d, (x0 + x1) / 2, yForD, noteH, size.width);
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTRB(x0, y - noteH / 2, x1, y + noteH / 2),
         Radius.circular(noteH / 2),
       );
+      if (hit) {
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = _kHit
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        );
+      }
       canvas.drawRRect(rect, Paint()..color = color);
-      // Sostenido.
       if (!_whitePc.contains(n.midi % 12)) {
         _text(canvas, '♯', Offset(x0 - 10, y), Colors.white, 13);
       }
@@ -229,12 +254,23 @@ class _LearnPainter extends CustomPainter {
       Offset(nowX, 0),
       Offset(nowX, keyboardTop),
       Paint()
-        ..color = const Color(0xFF4AE3B5)
+        ..color = _kHit
         ..strokeWidth = 2.5,
     );
 
     // ---------- Teclado ----------
     _paintKeyboard(canvas, size, keyboardTop, notes, pos);
+
+    // Cartel rápido de "¡Bien!" al acertar.
+    if (c.lastHitT >= 0 && (pos - c.lastHitT) >= 0 && (pos - c.lastHitT) < 0.6) {
+      _text(
+        canvas,
+        '¡Bien! ✨',
+        Offset(size.width * 0.5, keyboardTop * 0.16),
+        _kHit,
+        26,
+      );
+    }
   }
 
   void _ledgerLines(
@@ -269,7 +305,6 @@ class _LearnPainter extends CustomPainter {
     List notes,
     double pos,
   ) {
-    // Rango usado por la canción (solo esas teclas).
     var minMidi = notes.first.midi as int;
     var maxMidi = minMidi;
     for (final n in notes) {
@@ -302,14 +337,19 @@ class _LearnPainter extends CustomPainter {
       return (whites.indexOf(midi - 1) + 1) * whiteW;
     }
 
-    int? activeMidi;
-    for (final n in notes) {
-      if (pos >= n.startT && pos < n.endT) {
-        activeMidi = n.midi as int;
+    // Nota guía activa (la que hay que tocar ahora) y si ya la acertaron.
+    int? targetIdx;
+    for (var i = 0; i < notes.length; i++) {
+      if (pos >= notes[i].startT && pos < notes[i].endT) {
+        targetIdx = i;
         break;
       }
     }
-    final sung = c.livePitch?.round();
+    final targetMidi = targetIdx != null ? notes[targetIdx].midi as int : null;
+    final targetHit =
+        targetIdx != null &&
+        targetIdx < c.noteHit.length &&
+        c.noteHit[targetIdx];
 
     // Blancas con sticker de color.
     for (var i = 0; i < whites.length; i++) {
@@ -317,9 +357,7 @@ class _LearnPainter extends CustomPainter {
       final x = i * whiteW;
       final rect = Rect.fromLTWH(x + 1, top, whiteW - 2, kbH);
       final color = kNoteColors[midi % 12];
-      final active = activeMidi == midi;
       canvas.drawRect(rect, Paint()..color = const Color(0xFFF7F7FA));
-      // Sombra sutil arriba (realismo).
       canvas.drawRect(
         Rect.fromLTWH(x + 1, top, whiteW - 2, 8),
         Paint()..color = Colors.black.withValues(alpha: 0.12),
@@ -333,25 +371,6 @@ class _LearnPainter extends CustomPainter {
         ),
         Paint()..color = color,
       );
-      if (active) {
-        canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.55));
-      }
-      // Tocada en pantalla: destello verde festivo.
-      if (c.tappedMidi == midi) {
-        canvas.drawRect(
-          rect,
-          Paint()..color = const Color(0xFF4AE3B5).withValues(alpha: 0.8),
-        );
-      }
-      // El aprendiz tocó ESTA tecla: verde festivo si es la correcta.
-      final played = sung == midi;
-      final correct = played && activeMidi == midi;
-      if (correct) {
-        canvas.drawRect(
-          rect,
-          Paint()..color = const Color(0xFF4AE3B5).withValues(alpha: 0.65),
-        );
-      }
       _text(
         canvas,
         _solfege[midi % 12] ?? '',
@@ -359,17 +378,14 @@ class _LearnPainter extends CustomPainter {
         Colors.white,
         (whiteW * 0.32).clamp(11.0, 20.0),
       );
-      if (played) {
-        canvas.drawRect(
-          rect,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = correct ? 5 : 3
-            ..color = correct
-                ? const Color(0xFF2FD9A8)
-                : const Color(0xFFFFB74D),
-        );
-      }
+      _keyDecor(
+        canvas,
+        rect,
+        isTarget: midi == targetMidi,
+        targetHit: targetHit,
+        pressed: c.pressedMidis.contains(midi),
+        radius: 0,
+      );
     }
 
     // Negras.
@@ -378,34 +394,102 @@ class _LearnPainter extends CustomPainter {
       if (_whitePc.contains(m % 12)) continue;
       final x = xForMidi(m);
       final w = whiteW * 0.58;
-      final active = activeMidi == m;
       final color = kNoteColors[m % 12];
       final rr = RRect.fromRectAndCorners(
         Rect.fromLTWH(x - w / 2, top, w, blackH),
         bottomLeft: const Radius.circular(5),
         bottomRight: const Radius.circular(5),
       );
-      final played = sung == m;
-      final correct = played && active;
-      final tappedNow = c.tappedMidi == m;
+      canvas.drawRRect(
+        rr,
+        Paint()..color = Color.lerp(color, Colors.black, 0.5)!,
+      );
+      _keyDecorRR(
+        canvas,
+        rr,
+        isTarget: m == targetMidi,
+        targetHit: targetHit,
+        pressed: c.pressedMidis.contains(m),
+      );
+    }
+  }
+
+  /// Realce de una tecla blanca: contorno guía tenue en la nota objetivo, y
+  /// brillo verde fuerte solo si se acertó. Si se aprieta, un realce suave.
+  void _keyDecor(
+    Canvas canvas,
+    Rect rect, {
+    required bool isTarget,
+    required bool targetHit,
+    required bool pressed,
+    required double radius,
+  }) {
+    if (pressed) {
+      canvas.drawRect(
+        rect,
+        Paint()..color = Colors.white.withValues(alpha: 0.25),
+      );
+    }
+    if (isTarget && targetHit) {
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = _kHit.withValues(alpha: 0.85)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..color = const Color(0xFF2FD9A8),
+      );
+    } else if (isTarget) {
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = Colors.white.withValues(alpha: 0.5),
+      );
+    }
+  }
+
+  void _keyDecorRR(
+    Canvas canvas,
+    RRect rr, {
+    required bool isTarget,
+    required bool targetHit,
+    required bool pressed,
+  }) {
+    if (pressed) {
+      canvas.drawRRect(
+        rr,
+        Paint()..color = Colors.white.withValues(alpha: 0.28),
+      );
+    }
+    if (isTarget && targetHit) {
       canvas.drawRRect(
         rr,
         Paint()
-          ..color = (correct || tappedNow)
-              ? const Color(0xFF4AE3B5)
-              : (active ? color : Color.lerp(color, Colors.black, 0.5)!),
+          ..color = _kHit
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
-      if (played) {
-        canvas.drawRRect(
-          rr,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = correct ? 4 : 3
-            ..color = correct
-                ? const Color(0xFF2FD9A8)
-                : const Color(0xFFFFB74D),
-        );
-      }
+      canvas.drawRRect(
+        rr,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..color = const Color(0xFF2FD9A8),
+      );
+    } else if (isTarget) {
+      canvas.drawRRect(
+        rr,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.white.withValues(alpha: 0.5),
+      );
     }
   }
 

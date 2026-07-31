@@ -27,9 +27,12 @@ class BuiltInScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(14),
                 child: Text(
-                  '🔊 Suenan solas y podés tocar las teclas o la batería en la '
-                  'pantalla para acompañar. Bajá la velocidad o silenciá el '
-                  'sonido con los botones de arriba.',
+                  '🔊 Suenan solas y podés tocar el piano o la batería en la '
+                  'pantalla para acompañar (mantené apretada la tecla y la nota '
+                  'se sostiene). Si tocás justo cuando la nota pasa por la '
+                  'línea, ¡brilla! Con el botón 🎤 podés practicar con un piano '
+                  'o batería de verdad cerca del celular. Bajá la velocidad o '
+                  'silenciá con los botones de arriba.',
                 ),
               ),
             ),

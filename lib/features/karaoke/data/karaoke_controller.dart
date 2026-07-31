@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -7,7 +8,6 @@ import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:pitch_detector_dart/pitch_detector.dart';
 
 import '../../pitch/domain/musical_note.dart';
 import '../domain/melody.dart';
@@ -15,6 +15,7 @@ import '../domain/rhythm.dart';
 import '../domain/scoring.dart';
 import '../domain/tone_synth.dart';
 import 'instrument_audio.dart';
+import 'pitch_worker.dart';
 
 /// Orquesta la práctica con puntaje: reproduce el instrumental, escucha el
 /// micrófono (voz/instrumento) y, al terminar, puntúa contra la referencia.
@@ -28,10 +29,10 @@ class KaraokeController extends ChangeNotifier {
 
   final AudioPlayer player = AudioPlayer();
   final FlutterAudioCapture _capture = FlutterAudioCapture();
-  final PitchDetector _pitch = PitchDetector(
-    audioSampleRate: sampleRate.toDouble(),
-    bufferSize: bufferSize,
-  );
+
+  /// Detección de tono en un isolate aparte (para que el dibujo fluya).
+  final PitchWorker _pitchWorker = PitchWorker();
+  StreamSubscription<PitchResult>? _pitchSub;
 
   Melody? _melody;
   Rhythm? _rhythm;
@@ -120,11 +121,34 @@ class KaraokeController extends ChangeNotifier {
   /// Sonidos de instrumento al tocar el piano/batería en pantalla.
   InstrumentAudio? _instr;
 
-  /// Tecla (MIDI) tocada recién en pantalla (para iluminarla), o -1.
-  int tappedMidi = -1;
+  /// Practicar con instrumento FÍSICO: enciende el micrófono para detectar si
+  /// tocás la nota/golpe correcto en el momento justo (además del virtual).
+  bool micPractice = false;
 
-  /// Pieza de batería (band) tocada recién en pantalla, o -1.
+  /// Teclas apretadas ahora en el piano virtual (multitáctil, para acordes).
+  final Set<int> pressedMidis = {};
+
+  /// Pieza de batería (band) tocada recién en pantalla, o -1 (destello corto).
   int tappedBand = -1;
+
+  /// Notas ya "acertadas" (paralelo a [notes]): brillan al pasar por la línea.
+  List<bool> noteHit = const [];
+
+  /// Momento del último golpe correcto por pieza de batería (para el brillo).
+  final List<double> lastBandHitT = [-1, -1, -1];
+
+  /// Momento del último acierto (para el cartel rápido de "¡Bien!").
+  double lastHitT = -1;
+
+  /// Aciertos acumulados y onsets ya acertados (para el puntaje festivo).
+  int _goodHits = 0;
+  final Set<int> _hitOnsets = {};
+
+  /// Semitonos de tolerancia para considerar "acertada" una tecla/nota tocada.
+  static const double _hitTolerance = 1.0;
+
+  /// Ventana (seg) alrededor del objetivo para contar un golpe como acierto.
+  static const double _hitWindow = 0.22;
 
   /// Carga una melodía prediseñada: la sintetiza a audio (para que suene y para
   /// mover la guía con precisión) y prepara los sonidos del teclado.
@@ -140,6 +164,7 @@ class KaraokeController extends ChangeNotifier {
     this.difficulty = difficulty.clamp(0, 2);
     notes = builtNotes;
     noteLit = List<double>.filled(notes.length, 0);
+    noteHit = List<bool>.filled(notes.length, false);
     // Precarga el rango del teclado (notas de la canción ± un poco).
     var lo = builtNotes.isEmpty ? 60 : builtNotes.first.midi;
     var hi = lo;
@@ -176,34 +201,87 @@ class KaraokeController extends ChangeNotifier {
     }
   }
 
-  /// Toca una nota del piano en pantalla (suena y se ilumina un instante).
-  void tapNote(int midi) {
-    _instr?.playNote(midi);
+  /// Aprieta una tecla del piano virtual (multitáctil): suena SOSTENIDO hasta
+  /// soltar. Si cae justo sobre la nota guía, cuenta como acierto (brilla).
+  void noteOn(int pointer, int midi) {
+    _instr?.noteOn(pointer, midi);
     if (effectsEnabled) HapticFeedback.selectionClick();
-    tappedMidi = midi;
+    pressedMidis.add(midi);
+    _checkMelodicHit(midi);
     notifyListeners();
-    Future.delayed(const Duration(milliseconds: 220), () {
-      if (_disposed) return;
-      if (tappedMidi == midi) {
-        tappedMidi = -1;
-        notifyListeners();
-      }
-    });
   }
 
-  /// Toca una pieza de la batería en pantalla (suena y se ilumina un instante).
+  /// Suelta la tecla (corta el sostenido de esa nota).
+  void noteOff(int pointer, int midi) {
+    _instr?.noteOff(pointer);
+    pressedMidis.remove(midi);
+    notifyListeners();
+  }
+
+  /// Toca una pieza de la batería en pantalla (suena; si cae justo sobre el
+  /// golpe guía, cuenta como acierto y brilla).
   void tapDrum(int band) {
     _instr?.playDrum(band);
     if (effectsEnabled) HapticFeedback.lightImpact();
     tappedBand = band;
+    _registerRhythmHit(clock, band);
     notifyListeners();
-    Future.delayed(const Duration(milliseconds: 180), () {
+    Future.delayed(const Duration(milliseconds: 160), () {
       if (_disposed) return;
       if (tappedBand == band) {
         tappedBand = -1;
         notifyListeners();
       }
     });
+  }
+
+  /// ¿La tecla [midi] acierta la nota guía activa (en el momento justo)?
+  void _checkMelodicHit(int midi) {
+    final idx = _noteIndexAt(clock);
+    if (idx == null || idx >= noteHit.length) return;
+    if (octaveFoldedDiff(midi.toDouble(), notes[idx].midi).abs() <=
+        _hitTolerance) {
+      _markMelodicHit(idx);
+    }
+  }
+
+  void _markMelodicHit(int idx) {
+    if (idx < 0 || idx >= noteHit.length || noteHit[idx]) return;
+    noteHit[idx] = true;
+    lastHitT = clock;
+    _goodHits++;
+  }
+
+  /// Un golpe (virtual o físico) cerca de un objetivo cuenta como acierto e
+  /// ilumina la pieza correspondiente.
+  void _registerRhythmHit(double t, [int? band]) {
+    final r = _rhythm;
+    if (r == null) return;
+    var best = -1;
+    var bestDt = _hitWindow;
+    for (var i = 0; i < r.hits.length; i++) {
+      // Virtual (band != null): tiene que ser la pieza correcta. Físico (band
+      // null, por micrófono): cuenta cualquier golpe en el momento justo.
+      if (band != null && r.hits[i].band.clamp(0, 2) != band) continue;
+      final dt = (r.hits[i].t - t).abs();
+      if (dt <= bestDt) {
+        bestDt = dt;
+        best = i;
+      }
+    }
+    if (best < 0) return;
+    final b = r.hits[best].band.clamp(0, 2);
+    lastBandHitT[b] = clock;
+    lastHitT = clock;
+    if (_hitOnsets.add(best)) _goodHits++;
+  }
+
+  /// Enciende/apaga la práctica con instrumento físico (micrófono). Se aplica
+  /// al empezar (no mientras suena).
+  void setMicPractice(bool value) {
+    if (_running) return;
+    micPractice = value;
+    notifyListeners();
   }
 
   /// Aplica el ajuste de sonido (mute/unmute) en vivo si está sonando.
@@ -234,10 +312,12 @@ class KaraokeController extends ChangeNotifier {
   /// Dificultad: 0 = Fácil (barras muy resumidas), 1 = Normal, 2 = Exigente
   /// (sigue la melodía más de cerca). Cambia cuánto se simplifica la línea.
   int difficulty = 1;
-  static const List<double> _diffMinDur = [0.30, 0.14, 0.09];
-  static const List<double> _diffThresh = [1.0, 0.8, 0.6];
-  static const List<int> _diffSmooth = [11, 9, 5];
-  static const List<double> _diffMaxGap = [0.40, 0.35, 0.30];
+  // Fácil (0) más "amable": barras largas y bien pegadas (línea melódica
+  // continua, fácil de cantar). Normal (1) y Exigente (2) siguen más de cerca.
+  static const List<double> _diffMinDur = [0.38, 0.16, 0.09];
+  static const List<double> _diffThresh = [1.4, 0.9, 0.6];
+  static const List<int> _diffSmooth = [13, 9, 5];
+  static const List<double> _diffMaxGap = [0.75, 0.45, 0.30];
 
   void _rebuildNotes() {
     final m = _melody;
@@ -253,6 +333,7 @@ class KaraokeController extends ChangeNotifier {
       maxGap: _diffMaxGap[difficulty],
     );
     noteLit = List<double>.filled(notes.length, 0);
+    noteHit = List<bool>.filled(notes.length, false);
   }
 
   /// Cambia la dificultad (rehace las barras). Solo cuando no está corriendo y
@@ -275,6 +356,17 @@ class KaraokeController extends ChangeNotifier {
     this.freeMode = freeMode;
     this.difficulty = difficulty.clamp(0, 2);
     _rebuildNotes();
+    // Piano virtual disponible también acá: precarga el rango de la canción.
+    if (notes.isNotEmpty) {
+      var lo = notes.first.midi;
+      var hi = lo;
+      for (final n in notes) {
+        if (n.midi < lo) lo = n.midi;
+        if (n.midi > hi) hi = n.midi;
+      }
+      _instr = InstrumentAudio()
+        ..preloadNotes([for (var m = lo - 2; m <= hi + 2; m++) m]);
+    }
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
     player.playerStateStream.listen(_onPlayerState);
   }
@@ -282,6 +374,7 @@ class KaraokeController extends ChangeNotifier {
   Future<void> loadRhythmic(String instrumentalPath, Rhythm rhythm) async {
     _rhythm = rhythm;
     _melody = null;
+    _instr = InstrumentAudio()..preloadDrums();
     await player.setAudioSource(AudioSource.uri(Uri.file(instrumentalPath)));
     player.playerStateStream.listen(_onPlayerState);
   }
@@ -310,18 +403,29 @@ class KaraokeController extends ChangeNotifier {
     activeNote = null;
     _livePitch = null;
     if (noteLit.isNotEmpty) noteLit = List<double>.filled(notes.length, 0);
-    tappedMidi = -1;
+    if (noteHit.isNotEmpty) noteHit = List<bool>.filled(notes.length, false);
+    pressedMidis.clear();
     tappedBand = -1;
+    lastBandHitT[0] = lastBandHitT[1] = lastBandHitT[2] = -1;
+    lastHitT = -1;
+    _goodHits = 0;
+    _hitOnsets.clear();
     notifyListeners();
 
-    // "Para empezar": suena solo y se puede tocar en pantalla (sin micrófono).
+    // "Para empezar": suena solo y se puede tocar en pantalla. Opcionalmente,
+    // con "instrumento real" (micrófono), también detecta un piano/batería
+    // físico cerca del celular.
     if (playAlong) {
       try {
         if (_loadFuture != null) await _loadFuture;
+        // Con instrumento real, silenciamos la pista guía para que el micrófono
+        // escuche solo el instrumento físico (y no la propia app).
+        if (micPractice) await _startMicCapture();
         _running = true;
         await player.seek(Duration.zero);
         await player.setSpeed(tempo);
-        await player.setVolume(builtInSoundEnabled ? 1.0 : 0.0);
+        final soundOn = builtInSoundEnabled && !micPractice;
+        await player.setVolume(soundOn ? 1.0 : 0.0);
         player.play();
         notifyListeners();
       } catch (e) {
@@ -347,27 +451,15 @@ class KaraokeController extends ChangeNotifier {
       return;
     }
 
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) {
+    final ok = await _startMicCapture();
+    if (!ok) {
       _error = 'Necesito permiso de micrófono para puntuar.';
       notifyListeners();
       return;
     }
 
     try {
-      if (!_capInited) {
-        await _capture.init();
-        _capInited = true;
-      }
-      await _capture.start(
-        _onAudio,
-        _onError,
-        sampleRate: sampleRate,
-        bufferSize: bufferSize,
-      );
       _running = true;
-      _micActive = true;
-
       await player.seek(Duration.zero);
       await player.setSpeed(tempo);
       player.play();
@@ -375,6 +467,34 @@ class KaraokeController extends ChangeNotifier {
     } catch (e) {
       _error = 'No se pudo iniciar: $e';
       notifyListeners();
+    }
+  }
+
+  /// Arranca el micrófono (permiso + captura + worker de tono). Devuelve false
+  /// si no hay permiso. En modo melódico, la detección corre en un isolate.
+  Future<bool> _startMicCapture() async {
+    if (_micActive) return true;
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) return false;
+    try {
+      if (!_capInited) {
+        await _capture.init();
+        _capInited = true;
+      }
+      if (!isRhythm) {
+        await _pitchWorker.start(sampleRate, bufferSize);
+        _pitchSub ??= _pitchWorker.results.listen(_onPitch);
+      }
+      await _capture.start(
+        _onAudio,
+        _onError,
+        sampleRate: sampleRate,
+        bufferSize: bufferSize,
+      );
+      _micActive = true;
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -389,21 +509,30 @@ class KaraokeController extends ChangeNotifier {
         _hits++;
         lastUserHitT = t;
         if (effectsEnabled) HapticFeedback.lightImpact();
+        _registerRhythmHit(t); // físico: golpe cerca de un objetivo -> brilla
       }
+      notifyListeners();
     } else {
-      final result = await _pitch.getPitchFromFloatBuffer(block);
-      double? midi;
-      if (result.pitched && result.pitch > 0) {
-        midi = 69 + 12 * (math.log(result.pitch / 440.0) / math.ln2);
-        _sung = MusicalNote.fromFrequency(result.pitch);
-      } else {
-        _sung = null;
-      }
-      _livePitch = midi;
-      _samples.add(PerformanceSample(t, midi));
-      _target = _melody!.frameAt(t);
-      _updateLiveGame(t, midi);
+      // Trabajo pesado fuera del hilo de UI: el resultado llega por _onPitch.
+      _pitchWorker.process(t, block);
     }
+  }
+
+  /// Llega el tono detectado por el isolate (melódico).
+  void _onPitch(PitchResult r) {
+    if (_disposed || !_running || isRhythm) return;
+    final t = r.t;
+    double? midi;
+    if (r.pitched && r.pitch > 0) {
+      midi = 69 + 12 * (math.log(r.pitch / 440.0) / math.ln2);
+      _sung = MusicalNote.fromFrequency(r.pitch);
+    } else {
+      _sung = null;
+    }
+    _livePitch = midi;
+    _samples.add(PerformanceSample(t, midi));
+    _target = _melody?.frameAt(t);
+    _updateLiveGame(t, midi);
     notifyListeners();
   }
 
@@ -433,6 +562,8 @@ class KaraokeController extends ChangeNotifier {
       if (dur > 0) {
         noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
       }
+      // Cantar/tocar afinado la nota cuenta como acierto (brilla al pasar).
+      if (diff.abs() <= _hitTolerance) _markMelodicHit(idx);
       // Sumar puntos: más cerca de la nota y más sostenido = más puntaje.
       final closeness = (1.0 - diff.abs() / onPitchTolerance).clamp(0.0, 1.0);
       _liveScore += dt * (60 + 40 * closeness);
@@ -466,23 +597,34 @@ class KaraokeController extends ChangeNotifier {
     try {
       await player.stop();
     } catch (_) {}
+    pressedMidis.clear();
+    _instr?.allOff();
 
-    // Play-along ("Para empezar"): sin puntaje, festejo siempre (es para jugar).
+    // Play-along ("Para empezar"): festejo amable. El puntaje refleja cuánto
+    // acompañaste (tocando o cantando), con un piso alto para que siempre sea
+    // alentador.
     if (playAlong) {
       if (isRhythm) {
-        rhythmResult = const RhythmResult(
-          score: 100,
-          timing: 1,
-          recall: 1,
+        final total = _rhythm?.hits.length ?? 0;
+        final ratio = total == 0 ? 1.0 : (_goodHits / total).clamp(0.0, 1.0);
+        final score = (55 + 45 * ratio).clamp(0.0, 100.0).toDouble();
+        rhythmResult = RhythmResult(
+          score: score,
+          timing: ratio,
+          recall: ratio,
           precision: 1,
-          matched: 0,
-          total: 0,
+          matched: _goodHits,
+          total: total,
         );
       } else {
-        melodicResult = const KaraokeResult(
-          score: 100,
-          pitchAccuracy: 1,
-          coverage: 1,
+        final total = notes.length;
+        final hit = noteHit.where((h) => h).length;
+        final ratio = total == 0 ? 1.0 : (hit / total).clamp(0.0, 1.0);
+        final score = (55 + 45 * ratio).clamp(0.0, 100.0).toDouble();
+        melodicResult = KaraokeResult(
+          score: score,
+          pitchAccuracy: ratio,
+          coverage: ratio,
         );
       }
       notifyListeners();
@@ -512,6 +654,8 @@ class KaraokeController extends ChangeNotifier {
     if (_micActive) {
       _capture.stop();
     }
+    _pitchSub?.cancel();
+    _pitchWorker.dispose();
     _instr?.dispose();
     player.dispose();
     super.dispose();

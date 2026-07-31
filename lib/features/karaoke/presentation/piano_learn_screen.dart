@@ -111,6 +111,7 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
                     ),
                   ),
                 ),
+                if (_c.playAlong) _micButton(),
                 if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
                 if (_c.playAlong)
@@ -174,6 +175,20 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
         KaraokeController.builtInSoundEnabled = !on;
         _c.applySound();
       },
+    );
+  }
+
+  /// Instrumento real (piano físico): enciende el micrófono para detectar si
+  /// tocás la nota justo. Solo se puede cambiar antes de empezar.
+  Widget _micButton() {
+    final on = _c.micPractice;
+    return IconButton(
+      tooltip: on ? 'Piano físico: activado' : 'Usar piano físico (micrófono)',
+      icon: Icon(
+        on ? Icons.mic : Icons.mic_none,
+        color: on ? const Color(0xFF4AE3B5) : Colors.white,
+      ),
+      onPressed: _c.running ? null : () => _c.setMicPractice(!on),
     );
   }
 

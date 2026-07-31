@@ -114,6 +114,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                   ),
                   onPressed: () => setState(() => _fullKit = !_fullKit),
                 ),
+                if (_c.playAlong) _micButton(),
                 if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
                 if (!_c.playAlong)
@@ -172,6 +173,22 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
         KaraokeController.builtInSoundEnabled = !on;
         _c.applySound();
       },
+    );
+  }
+
+  /// Batería real (física): enciende el micrófono para detectar tus golpes.
+  /// Solo se puede cambiar antes de empezar.
+  Widget _micButton() {
+    final on = _c.micPractice;
+    return IconButton(
+      tooltip: on
+          ? 'Batería física: activada'
+          : 'Usar batería física (micrófono)',
+      icon: Icon(
+        on ? Icons.mic : Icons.mic_none,
+        color: on ? const Color(0xFF4AE3B5) : Colors.white,
+      ),
+      onPressed: _c.running ? null : () => _c.setMicPractice(!on),
     );
   }
 
