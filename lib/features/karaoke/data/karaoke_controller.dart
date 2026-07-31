@@ -40,7 +40,8 @@ class KaraokeController extends ChangeNotifier {
 
   final List<PerformanceSample> _samples = [];
   final List<double> _userOnsets = [];
-  final OnsetDetector _onset = OnsetDetector();
+  // Umbral algo más sensible para que enganche mejor un instrumento físico.
+  final OnsetDetector _onset = OnsetDetector(threshold: 1.8, minInterval: 0.08);
 
   bool _capInited = false;
   bool _running = false;
@@ -93,6 +94,12 @@ class KaraokeController extends ChangeNotifier {
   /// Tiempo (seg) del último golpe del usuario (para el flash de la vista de
   /// batería). -1 si todavía no golpeó.
   double lastUserHitT = -1;
+
+  /// Nivel del micrófono ahora (0..1), para mostrar que está escuchando.
+  double micLevel = 0;
+
+  /// true si el micrófono está capturando (para el indicador "escuchando").
+  bool get listening => _micActive;
 
   /// Velocidad de reproducción (1.0 = normal). Bajarla ayuda a aprender; como
   /// todo se sincroniza con el reloj, las barras/notas siguen alineadas.
@@ -408,6 +415,7 @@ class KaraokeController extends ChangeNotifier {
     tappedBand = -1;
     lastBandHitT[0] = lastBandHitT[1] = lastBandHitT[2] = -1;
     lastHitT = -1;
+    micLevel = 0;
     _goodHits = 0;
     _hitOnsets.clear();
     notifyListeners();
@@ -420,7 +428,14 @@ class KaraokeController extends ChangeNotifier {
         if (_loadFuture != null) await _loadFuture;
         // Con instrumento real, silenciamos la pista guía para que el micrófono
         // escuche solo el instrumento físico (y no la propia app).
-        if (micPractice) await _startMicCapture();
+        if (micPractice) {
+          final ok = await _startMicCapture();
+          if (!ok) {
+            _error =
+                'No pude usar el micrófono. Activá el permiso para tocar el '
+                'instrumento real.';
+          }
+        }
         _running = true;
         await player.seek(Duration.zero);
         await player.setSpeed(tempo);
@@ -503,6 +518,14 @@ class KaraokeController extends ChangeNotifier {
     final block = (obj as List).cast<double>();
     final t = clock;
 
+    // Nivel del micrófono (para el indicador "escuchando" y el destello).
+    var energy = 0.0;
+    for (final v in block) {
+      energy += v * v;
+    }
+    energy = math.sqrt(energy / block.length);
+    micLevel = micLevel * 0.6 + (energy * 6).clamp(0.0, 1.0) * 0.4;
+
     if (isRhythm) {
       if (_onset.process(block, t)) {
         _userOnsets.add(t);
@@ -515,6 +538,9 @@ class KaraokeController extends ChangeNotifier {
     } else {
       // Trabajo pesado fuera del hilo de UI: el resultado llega por _onPitch.
       _pitchWorker.process(t, block);
+      // En "instrumento real" actualizamos el medidor en vivo (en karaoke normal
+      // ya lo hace _onPitch, para no recargar el hilo de UI).
+      if (playAlong) notifyListeners();
     }
   }
 

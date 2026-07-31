@@ -261,6 +261,9 @@ class _LearnPainter extends CustomPainter {
     // ---------- Teclado ----------
     _paintKeyboard(canvas, size, keyboardTop, notes, pos);
 
+    // Indicador de micrófono (piano real).
+    if (c.micPractice) _micMeter(canvas, size, c.micLevel, c.listening);
+
     // Cartel rápido de "¡Bien!" al acertar.
     if (c.lastHitT >= 0 && (pos - c.lastHitT) >= 0 && (pos - c.lastHitT) < 0.6) {
       _text(
@@ -491,6 +494,34 @@ class _LearnPainter extends CustomPainter {
           ..color = Colors.white.withValues(alpha: 0.5),
       );
     }
+  }
+
+  void _micMeter(Canvas canvas, Size size, double level, bool listening) {
+    final w = size.width * 0.3;
+    final x = size.width * 0.5 - w / 2;
+    final y = size.height * 0.04;
+    const h = 9.0;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, w, h),
+        const Radius.circular(5),
+      ),
+      Paint()..color = Colors.white24,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, w * level.clamp(0.0, 1.0), h),
+        const Radius.circular(5),
+      ),
+      Paint()..color = level > 0.5 ? _kHit : const Color(0xFFFFCA28),
+    );
+    _text(
+      canvas,
+      listening ? '🎤 Escuchando tu piano…' : '🎤 micrófono',
+      Offset(size.width * 0.5, y - 10),
+      Colors.white70,
+      12,
+    );
   }
 
   void _text(

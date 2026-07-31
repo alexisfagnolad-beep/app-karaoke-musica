@@ -114,7 +114,6 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                   ),
                   onPressed: () => setState(() => _fullKit = !_fullKit),
                 ),
-                if (_c.playAlong) _micButton(),
                 if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
                 if (!_c.playAlong)
@@ -127,6 +126,11 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                   ),
               ],
             ),
+            if (_c.playAlong && !_c.running)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: _physicalToggle('batería'),
+              ),
             const Spacer(),
             Align(
               alignment: Alignment.bottomRight,
@@ -176,19 +180,22 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
     );
   }
 
-  /// Batería real (física): enciende el micrófono para detectar tus golpes.
-  /// Solo se puede cambiar antes de empezar.
-  Widget _micButton() {
+  /// Toggle bien visible: tocar con instrumento REAL (micrófono). Antes de
+  /// empezar. Al activarlo, la app escucha tu batería/piano físico.
+  Widget _physicalToggle(String instrumento) {
     final on = _c.micPractice;
-    return IconButton(
-      tooltip: on
-          ? 'Batería física: activada'
-          : 'Usar batería física (micrófono)',
-      icon: Icon(
-        on ? Icons.mic : Icons.mic_none,
-        color: on ? const Color(0xFF4AE3B5) : Colors.white,
+    return ElevatedButton.icon(
+      onPressed: () => _c.setMicPractice(!on),
+      icon: Icon(on ? Icons.mic : Icons.mic_none),
+      label: Text(
+        on
+            ? '$instrumento real: ACTIVADA 🎤'
+            : 'Tocar $instrumento real (micrófono)',
       ),
-      onPressed: _c.running ? null : () => _c.setMicPractice(!on),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: on ? const Color(0xFF1DB6A2) : Colors.white24,
+        foregroundColor: Colors.white,
+      ),
     );
   }
 

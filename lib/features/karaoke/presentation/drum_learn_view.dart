@@ -190,7 +190,19 @@ class _DrumLearnPainter extends CustomPainter {
       );
     }
 
-    // Línea "golpeá ahora".
+    // Línea "golpeá ahora". Destella al ESCUCHAR un golpe (aunque sea fuera de
+    // tiempo), para confirmar que el micrófono te está tomando.
+    final heard = c.lastUserHitT >= 0 && (pos - c.lastUserHitT) < 0.15;
+    if (heard) {
+      canvas.drawLine(
+        Offset(0, hitLine),
+        Offset(size.width, hitLine),
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 6
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
     canvas.drawLine(
       Offset(0, hitLine),
       Offset(size.width, hitLine),
@@ -202,10 +214,40 @@ class _DrumLearnPainter extends CustomPainter {
     // --- Batería dibujada abajo ---
     _drawKit(canvas, size, hitLine, lit);
 
+    // Indicador de micrófono (nivel), para ver que está escuchando.
+    if (c.micPractice) _micMeter(canvas, size, c.micLevel, c.listening);
+
     // Cartel rápido de "¡Bien!" al acertar.
     if (c.lastHitT >= 0 && (pos - c.lastHitT) >= 0 && (pos - c.lastHitT) < 0.6) {
       _flash(canvas, size, '¡Bien! ✨');
     }
+  }
+
+  void _micMeter(Canvas canvas, Size size, double level, bool listening) {
+    final w = size.width * 0.34;
+    final x = size.width * 0.5 - w / 2;
+    final y = size.height * 0.05;
+    const h = 10.0;
+    final bg = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, w, h),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(bg, Paint()..color = Colors.white24);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, w * level.clamp(0.0, 1.0), h),
+        const Radius.circular(5),
+      ),
+      Paint()..color = level > 0.5 ? _kHit : const Color(0xFFFFCA28),
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+        text: listening ? '🎤 Escuchando tu instrumento…' : '🎤 micrófono',
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(size.width * 0.5 - tp.width / 2, y - 18));
   }
 
   void _drawKit(Canvas canvas, Size size, double top, List<bool> lit) {
