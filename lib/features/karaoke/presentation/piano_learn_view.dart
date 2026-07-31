@@ -43,16 +43,73 @@ class _PianoLearnViewState extends State<PianoLearnView>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        CustomPaint(
-          painter: _LearnPainter(widget.controller, _ticker),
-          size: Size.infinite,
-        ),
-        _buildCountIn(),
-      ],
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final size = Size(cons.maxWidth, cons.maxHeight);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _onTap(d.localPosition, size),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _LearnPainter(widget.controller, _ticker),
+                size: Size.infinite,
+              ),
+              _buildCountIn(),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  /// Tocar una tecla en pantalla: mapea el toque a la nota y la hace sonar.
+  /// Solo en modo "Para empezar" (play-along).
+  void _onTap(Offset p, Size size) {
+    final c = widget.controller;
+    if (!c.playAlong || c.notes.isEmpty) return;
+    final top = size.height * 0.52;
+    if (p.dy < top) return;
+
+    var minMidi = c.notes.first.midi;
+    var maxMidi = minMidi;
+    for (final n in c.notes) {
+      if (n.midi < minMidi) minMidi = n.midi;
+      if (n.midi > maxMidi) maxMidi = n.midi;
+    }
+    var startMidi = minMidi - 1;
+    while (!_whitePc.contains(startMidi % 12)) {
+      startMidi--;
+    }
+    var endMidi = maxMidi + 1;
+    while (!_whitePc.contains(endMidi % 12)) {
+      endMidi++;
+    }
+    final whites = <int>[];
+    for (var m = startMidi; m <= endMidi; m++) {
+      if (_whitePc.contains(m % 12)) whites.add(m);
+    }
+    if (whites.isEmpty) return;
+
+    final whiteW = size.width / whites.length;
+    final kbH = size.height - top;
+    final blackH = kbH * 0.62;
+
+    // Negras primero (están arriba y encima de las blancas).
+    for (var m = startMidi; m <= endMidi; m++) {
+      if (_whitePc.contains(m % 12)) continue;
+      final wi = whites.indexOf(m - 1);
+      if (wi < 0) continue;
+      final cx = (wi + 1) * whiteW;
+      final w = whiteW * 0.58;
+      if (p.dy <= top + blackH && (p.dx - cx).abs() <= w / 2) {
+        c.tapNote(m);
+        return;
+      }
+    }
+    final idx = (p.dx / whiteW).floor().clamp(0, whites.length - 1);
+    c.tapNote(whites[idx]);
   }
 
   Widget _buildCountIn() {
@@ -100,7 +157,9 @@ class _LearnPainter extends CustomPainter {
 
   final KaraokeController c;
 
-  static const double lookahead = 3.2; // segundos visibles a la derecha.
+  // Segundos visibles a la derecha. En "Para empezar" (play-along) la ventana
+  // es más amplia: las notas viajan más despacio y se leen mejor.
+  double get lookahead => c.playAlong ? 4.4 : 3.2;
   static const double nowFrac = 0.2;
 
   @override
@@ -277,6 +336,13 @@ class _LearnPainter extends CustomPainter {
       if (active) {
         canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.55));
       }
+      // Tocada en pantalla: destello verde festivo.
+      if (c.tappedMidi == midi) {
+        canvas.drawRect(
+          rect,
+          Paint()..color = const Color(0xFF4AE3B5).withValues(alpha: 0.8),
+        );
+      }
       // El aprendiz tocó ESTA tecla: verde festivo si es la correcta.
       final played = sung == midi;
       final correct = played && activeMidi == midi;
@@ -321,10 +387,11 @@ class _LearnPainter extends CustomPainter {
       );
       final played = sung == m;
       final correct = played && active;
+      final tappedNow = c.tappedMidi == m;
       canvas.drawRRect(
         rr,
         Paint()
-          ..color = correct
+          ..color = (correct || tappedNow)
               ? const Color(0xFF4AE3B5)
               : (active ? color : Color.lerp(color, Colors.black, 0.5)!),
       );

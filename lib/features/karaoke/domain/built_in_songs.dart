@@ -81,7 +81,7 @@ final List<BuiltInSong> builtInSongs = [
     [64, 12, 1.5],
     [62, 13.5, 0.5],
     [62, 14, 2],
-  ], 100),
+  ], 78),
   _song('Estrellita (Twinkle)', Icons.star, const [
     [60, 0, 1],
     [60, 1, 1],
@@ -97,7 +97,7 @@ final List<BuiltInSong> builtInSongs = [
     [62, 12, 1],
     [62, 13, 1],
     [60, 14, 2],
-  ], 100),
+  ], 76),
   _song('Feliz Cumpleaños', Icons.cake, const [
     [67, 0, 0.75],
     [67, 0.75, 0.25],
@@ -124,7 +124,7 @@ final List<BuiltInSong> builtInSongs = [
     [72, 21, 1],
     [74, 22, 1],
     [72, 23, 2],
-  ], 110),
+  ], 84),
 ];
 
 Rhythm _pattern(double bpm, int bars, List<List<num>> perBar, double lead) {
@@ -159,12 +159,12 @@ BuiltInPattern _pat(
 /// Patrones rítmicos para practicar batería. band: 0 bombo, 1 redoblante,
 /// 2 hi-hat. [beatDentroDelCompás, band].
 final List<BuiltInPattern> builtInPatterns = [
-  _pat('Rock básico', Icons.music_note, 90, 4, const [
+  _pat('Rock básico', Icons.music_note, 76, 4, const [
     [0, 2], [0.5, 2], [1, 2], [1.5, 2], [2, 2], [2.5, 2], [3, 2], [3.5, 2],
     [0, 0], [2, 0], // bombo 1 y 3
     [1, 1], [3, 1], // redoblante 2 y 4
   ]),
-  _pat('Pop simple', Icons.queue_music, 100, 4, const [
+  _pat('Pop simple', Icons.queue_music, 82, 4, const [
     [0, 2],
     [1, 2],
     [2, 2],
@@ -174,7 +174,7 @@ final List<BuiltInPattern> builtInPatterns = [
     [1, 1],
     [3, 1],
   ]),
-  _pat('Marcha', Icons.directions_walk, 110, 4, const [
+  _pat('Marcha', Icons.directions_walk, 86, 4, const [
     [0, 0],
     [1, 1],
     [2, 0],

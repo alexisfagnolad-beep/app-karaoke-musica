@@ -1,10 +1,11 @@
-import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
 
@@ -12,6 +13,8 @@ import '../../pitch/domain/musical_note.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import '../domain/scoring.dart';
+import '../domain/tone_synth.dart';
+import 'instrument_audio.dart';
 
 /// Orquesta la práctica con puntaje: reproduce el instrumental, escucha el
 /// micrófono (voz/instrumento) y, al terminar, puntúa contra la referencia.
@@ -40,6 +43,8 @@ class KaraokeController extends ChangeNotifier {
 
   bool _capInited = false;
   bool _running = false;
+  bool _micActive = false;
+  bool _disposed = false;
   String? _error;
 
   MusicalNote? _sung;
@@ -77,6 +82,10 @@ class KaraokeController extends ChangeNotifier {
   static bool effectsEnabled = true;
   int _lastHapticNote = -1;
 
+  /// Sonido de las melodías/patrones prediseñados ("Para empezar"). Se puede
+  /// silenciar desde Ajustes o con el botón de la propia pantalla.
+  static bool builtInSoundEnabled = true;
+
   KaraokeResult? melodicResult;
   RhythmResult? rhythmResult;
 
@@ -88,29 +97,37 @@ class KaraokeController extends ChangeNotifier {
   /// todo se sincroniza con el reloj, las barras/notas siguen alineadas.
   double tempo = 1.0;
 
-  /// Cambia el tempo (0.5..1.0). El tono se mantiene (no suena grave).
+  /// Cambia el tempo (0.35..1.0). El tono se mantiene (no suena grave). Para
+  /// los chicos se puede ir bien lento sin que la guía se acelere.
   Future<void> setTempo(double value) async {
-    tempo = value.clamp(0.5, 1.0);
+    tempo = value.clamp(0.35, 1.0);
     try {
       await player.setSpeed(tempo);
     } catch (_) {}
     notifyListeners();
   }
 
-  // --- Reloj: audio o metrónomo (contenido prediseñado, sin archivo) ---
-  final Stopwatch _sw = Stopwatch();
-  Timer? _metroTimer;
+  /// Tiempo actual en segundos (posición de la pista de audio).
+  double get clock => player.position.inMilliseconds / 1000.0;
 
-  /// true = contenido prediseñado (melodía/patrón interno), sin pista de audio.
-  bool metronomeMode = false;
-  double _contentDuration = 0;
+  // --- Modo "tocar y seguir" (Para empezar): sin micrófono, con sonido ---
+  /// true = contenido prediseñado que suena solo (melodía/patrón) y se puede
+  /// tocar en pantalla. No usa micrófono ni puntúa: es para jugar y aprender.
+  bool playAlong = false;
+  Future<void>? _loadFuture;
+  static int _trackSeq = 0;
 
-  /// Tiempo actual en segundos (de la pista de audio o del metrónomo interno).
-  double get clock => metronomeMode
-      ? _sw.elapsedMilliseconds / 1000.0 * tempo
-      : player.position.inMilliseconds / 1000.0;
+  /// Sonidos de instrumento al tocar el piano/batería en pantalla.
+  InstrumentAudio? _instr;
 
-  /// Carga una melodía prediseñada (lista de barras) sin audio.
+  /// Tecla (MIDI) tocada recién en pantalla (para iluminarla), o -1.
+  int tappedMidi = -1;
+
+  /// Pieza de batería (band) tocada recién en pantalla, o -1.
+  int tappedBand = -1;
+
+  /// Carga una melodía prediseñada: la sintetiza a audio (para que suene y para
+  /// mover la guía con precisión) y prepara los sonidos del teclado.
   void loadBuiltInMelodic(
     List<MelodyNote> builtNotes,
     double duration, {
@@ -119,19 +136,84 @@ class KaraokeController extends ChangeNotifier {
     _melody = null;
     _rhythm = null;
     freeMode = false;
-    metronomeMode = true;
+    playAlong = true;
     this.difficulty = difficulty.clamp(0, 2);
     notes = builtNotes;
     noteLit = List<double>.filled(notes.length, 0);
-    _contentDuration = duration;
+    // Precarga el rango del teclado (notas de la canción ± un poco).
+    var lo = builtNotes.isEmpty ? 60 : builtNotes.first.midi;
+    var hi = lo;
+    for (final n in builtNotes) {
+      if (n.midi < lo) lo = n.midi;
+      if (n.midi > hi) hi = n.midi;
+    }
+    _instr = InstrumentAudio()
+      ..preloadNotes([for (var m = lo - 2; m <= hi + 2; m++) m]);
+    _loadFuture = _prepareTrack(ToneSynth.renderMelody(builtNotes, duration));
   }
 
-  /// Carga un patrón rítmico prediseñado sin audio.
+  /// Carga un patrón rítmico prediseñado (lo sintetiza a audio y prepara los
+  /// sonidos de batería para tocar en pantalla).
   void loadBuiltInRhythm(Rhythm rhythm, double duration) {
     _rhythm = rhythm;
     _melody = null;
-    metronomeMode = true;
-    _contentDuration = duration;
+    playAlong = true;
+    _instr = InstrumentAudio()..preloadDrums();
+    _loadFuture = _prepareTrack(ToneSynth.renderRhythm(rhythm, duration));
+  }
+
+  /// Escribe el WAV sintetizado a un archivo temporal y lo carga en el player.
+  Future<void> _prepareTrack(List<int> wav) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final f = File('${dir.path}/builtin_${_trackSeq++}.wav');
+      await f.writeAsBytes(wav, flush: true);
+      await player.setAudioSource(AudioSource.uri(Uri.file(f.path)));
+      player.playerStateStream.listen(_onPlayerState);
+    } catch (e) {
+      _error = 'No se pudo preparar el audio: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Toca una nota del piano en pantalla (suena y se ilumina un instante).
+  void tapNote(int midi) {
+    _instr?.playNote(midi);
+    if (effectsEnabled) HapticFeedback.selectionClick();
+    tappedMidi = midi;
+    notifyListeners();
+    Future.delayed(const Duration(milliseconds: 220), () {
+      if (_disposed) return;
+      if (tappedMidi == midi) {
+        tappedMidi = -1;
+        notifyListeners();
+      }
+    });
+  }
+
+  /// Toca una pieza de la batería en pantalla (suena y se ilumina un instante).
+  void tapDrum(int band) {
+    _instr?.playDrum(band);
+    if (effectsEnabled) HapticFeedback.lightImpact();
+    tappedBand = band;
+    notifyListeners();
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (_disposed) return;
+      if (tappedBand == band) {
+        tappedBand = -1;
+        notifyListeners();
+      }
+    });
+  }
+
+  /// Aplica el ajuste de sonido (mute/unmute) en vivo si está sonando.
+  Future<void> applySound() async {
+    if (playAlong) {
+      try {
+        await player.setVolume(builtInSoundEnabled ? 1.0 : 0.0);
+      } catch (_) {}
+    }
+    notifyListeners();
   }
 
   bool get running => _running;
@@ -205,6 +287,7 @@ class KaraokeController extends ChangeNotifier {
   }
 
   void _onPlayerState(PlayerState state) {
+    if (_disposed) return;
     if (state.processingState == ProcessingState.completed && _running) {
       finish();
     }
@@ -227,7 +310,27 @@ class KaraokeController extends ChangeNotifier {
     activeNote = null;
     _livePitch = null;
     if (noteLit.isNotEmpty) noteLit = List<double>.filled(notes.length, 0);
+    tappedMidi = -1;
+    tappedBand = -1;
     notifyListeners();
+
+    // "Para empezar": suena solo y se puede tocar en pantalla (sin micrófono).
+    if (playAlong) {
+      try {
+        if (_loadFuture != null) await _loadFuture;
+        _running = true;
+        await player.seek(Duration.zero);
+        await player.setSpeed(tempo);
+        await player.setVolume(builtInSoundEnabled ? 1.0 : 0.0);
+        player.play();
+        notifyListeners();
+      } catch (e) {
+        _error = 'No se pudo iniciar: $e';
+        _running = false;
+        notifyListeners();
+      }
+      return;
+    }
 
     // Modo libre: solo reproducir (sin micrófono ni puntaje).
     if (freeMode) {
@@ -263,23 +366,7 @@ class KaraokeController extends ChangeNotifier {
         bufferSize: bufferSize,
       );
       _running = true;
-
-      // Contenido prediseñado: reloj de metrónomo interno (sin audio).
-      if (metronomeMode) {
-        _sw
-          ..reset()
-          ..start();
-        _metroTimer = Timer.periodic(const Duration(milliseconds: 80), (t) {
-          if (!_running) {
-            t.cancel();
-            return;
-          }
-          notifyListeners();
-          if (clock > _contentDuration + 0.5) finish();
-        });
-        notifyListeners();
-        return;
-      }
+      _micActive = true;
 
       await player.seek(Duration.zero);
       await player.setSpeed(tempo);
@@ -368,16 +455,39 @@ class KaraokeController extends ChangeNotifier {
   }
 
   Future<void> finish() async {
-    if (!_running) return;
+    if (_disposed || !_running) return;
     _running = false;
-    _metroTimer?.cancel();
-    _sw.stop();
-    if (!freeMode) {
+    if (_micActive) {
+      _micActive = false;
       try {
         await _capture.stop();
       } catch (_) {}
     }
-    if (!metronomeMode) await player.stop();
+    try {
+      await player.stop();
+    } catch (_) {}
+
+    // Play-along ("Para empezar"): sin puntaje, festejo siempre (es para jugar).
+    if (playAlong) {
+      if (isRhythm) {
+        rhythmResult = const RhythmResult(
+          score: 100,
+          timing: 1,
+          recall: 1,
+          precision: 1,
+          matched: 0,
+          total: 0,
+        );
+      } else {
+        melodicResult = const KaraokeResult(
+          score: 100,
+          pitchAccuracy: 1,
+          coverage: 1,
+        );
+      }
+      notifyListeners();
+      return;
+    }
 
     // Modo libre: no hay puntaje, solo termina.
     if (freeMode) {
@@ -398,10 +508,11 @@ class KaraokeController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _metroTimer?.cancel();
-    if (_running) {
+    _disposed = true;
+    if (_micActive) {
       _capture.stop();
     }
+    _instr?.dispose();
     player.dispose();
     super.dispose();
   }

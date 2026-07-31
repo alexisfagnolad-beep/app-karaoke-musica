@@ -22,6 +22,17 @@ class BuiltInScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            const Card(
+              color: Color(0x143DE0C6),
+              child: Padding(
+                padding: EdgeInsets.all(14),
+                child: Text(
+                  '🔊 Suenan solas y podés tocar las teclas o la batería en la '
+                  'pantalla para acompañar. Bajá la velocidad o silenciá el '
+                  'sonido con los botones de arriba.',
+                ),
+              ),
+            ),
             _section(context, '🎹 Canciones para piano'),
             for (final s in builtInSongs)
               _tile(
@@ -29,7 +40,7 @@ class BuiltInScreen extends StatelessWidget {
                 icon: s.icon,
                 color: AppColors.teal,
                 title: s.title,
-                subtitle: 'Tocá la melodía en el piano',
+                subtitle: 'Escuchá y tocá la melodía en el piano',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => PianoLearnScreen.builtIn(
@@ -48,7 +59,7 @@ class BuiltInScreen extends StatelessWidget {
                 icon: p.icon,
                 color: AppColors.pink,
                 title: p.title,
-                subtitle: 'Seguí el patrón en la batería',
+                subtitle: 'Escuchá y tocá el patrón en la batería',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => DrumLearnScreen.builtIn(

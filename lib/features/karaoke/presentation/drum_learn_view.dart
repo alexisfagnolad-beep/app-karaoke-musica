@@ -36,20 +36,37 @@ class _DrumLearnViewState extends State<DrumLearnView>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        CustomPaint(
-          painter: _DrumLearnPainter(
-            widget.controller,
-            _ticker,
-            widget.fullKit,
+    return LayoutBuilder(
+      builder: (context, cons) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _onTap(d.localPosition.dx, cons.maxWidth),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _DrumLearnPainter(
+                  widget.controller,
+                  _ticker,
+                  widget.fullKit,
+                ),
+                size: Size.infinite,
+              ),
+              _buildCountIn(),
+            ],
           ),
-          size: Size.infinite,
-        ),
-        _buildCountIn(),
-      ],
+        );
+      },
     );
+  }
+
+  /// Tocar una pieza en pantalla: izquierda = redoblante, centro = bombo,
+  /// derecha = hi-hat. Solo en "Para empezar" (play-along).
+  void _onTap(double dx, double width) {
+    final c = widget.controller;
+    if (!c.playAlong) return;
+    final band = dx < width * 0.39 ? 1 : (dx < width * 0.61 ? 0 : 2);
+    c.tapDrum(band);
   }
 
   Widget _buildCountIn() {
@@ -95,7 +112,8 @@ class _DrumLearnPainter extends CustomPainter {
   final KaraokeController c;
   final bool fullKit;
 
-  static const double lookahead = 2.2;
+  // En "Para empezar" (play-along) las notas caen más despacio y se leen mejor.
+  double get lookahead => c.playAlong ? 3.0 : 2.2;
 
   // band -> carril (0 bombo=centro, 1 redoblante=izq, 2 hi-hat=der).
   static const List<Color> colors = [
@@ -173,17 +191,18 @@ class _DrumLearnPainter extends CustomPainter {
     // Flash del golpe del usuario.
     final userFlash = c.lastUserHitT >= 0 && (pos - c.lastUserHitT) < 0.12;
 
+    // Encendido de cada pieza: llega un golpe, golpe del mic, o toque en
+    // pantalla de esa pieza.
+    final lit = <bool>[
+      for (var i = 0; i < 3; i++)
+        active[i] || userFlash || c.tappedBand == i,
+    ];
+
     // --- Batería dibujada abajo ---
-    _drawKit(canvas, size, hitLine, active, userFlash);
+    _drawKit(canvas, size, hitLine, lit);
   }
 
-  void _drawKit(
-    Canvas canvas,
-    Size size,
-    double top,
-    List<bool> active,
-    bool userFlash,
-  ) {
+  void _drawKit(Canvas canvas, Size size, double top, List<bool> lit) {
     final w = size.width;
     final h = size.height;
     const grey = Color(0xFF3A3A46);
@@ -212,7 +231,7 @@ class _DrumLearnPainter extends CustomPainter {
         Offset(w * 0.66, top + (h - top) * 0.28),
         w * 0.10,
         colors[2],
-        active[2] || userFlash,
+        lit[2],
       );
       _label(canvas, 'Hi-hat', Offset(w * 0.66, top + (h - top) * 0.28));
       // Toms (decorativos).
@@ -231,7 +250,7 @@ class _DrumLearnPainter extends CustomPainter {
         Offset(w * 0.28, h * 0.80),
         w * 0.07,
         colors[1],
-        active[1] || userFlash,
+        lit[1],
       );
       _label(canvas, 'Redob.', Offset(w * 0.28, h * 0.80));
       // Bombo (activo, grande, centro).
@@ -240,7 +259,7 @@ class _DrumLearnPainter extends CustomPainter {
         Offset(w * 0.5, h * 0.88),
         w * 0.11,
         colors[0],
-        active[0] || userFlash,
+        lit[0],
       );
       _label(canvas, 'Bombo', Offset(w * 0.5, h * 0.88));
       return;
@@ -266,7 +285,7 @@ class _DrumLearnPainter extends CustomPainter {
       Offset(w * 0.72, top + (h - top) * 0.30),
       w * 0.12,
       colors[2],
-      active[2] || userFlash,
+      lit[2],
     );
     _label(canvas, names[2], Offset(w * 0.72, top + (h - top) * 0.30));
     _drum(
@@ -274,7 +293,7 @@ class _DrumLearnPainter extends CustomPainter {
       Offset(w * 0.28, h * 0.82),
       w * 0.075,
       colors[1],
-      active[1] || userFlash,
+      lit[1],
     );
     _label(canvas, names[1], Offset(w * 0.28, h * 0.82));
     _drum(
@@ -282,7 +301,7 @@ class _DrumLearnPainter extends CustomPainter {
       Offset(w * 0.5, h * 0.86),
       w * 0.11,
       colors[0],
-      active[0] || userFlash,
+      lit[0],
     );
     _label(canvas, names[0], Offset(w * 0.5, h * 0.86));
   }

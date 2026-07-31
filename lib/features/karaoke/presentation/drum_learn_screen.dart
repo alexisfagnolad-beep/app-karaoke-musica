@@ -114,14 +114,16 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                   ),
                   onPressed: () => setState(() => _fullKit = !_fullKit),
                 ),
+                if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
-                Text(
-                  'Golpes: ${_c.hits}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                if (!_c.playAlong)
+                  Text(
+                    'Golpes: ${_c.hits}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
               ],
             ),
             const Spacer(),
@@ -155,6 +157,21 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _soundButton() {
+    final on = KaraokeController.builtInSoundEnabled;
+    return IconButton(
+      tooltip: on ? 'Silenciar' : 'Activar sonido',
+      icon: Icon(
+        on ? Icons.volume_up : Icons.volume_off,
+        color: Colors.white,
+      ),
+      onPressed: () {
+        KaraokeController.builtInSoundEnabled = !on;
+        _c.applySound();
+      },
     );
   }
 

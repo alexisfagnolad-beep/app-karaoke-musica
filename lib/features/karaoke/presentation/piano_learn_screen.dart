@@ -111,8 +111,11 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
                     ),
                   ),
                 ),
+                if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
-                if (_c.running)
+                if (_c.playAlong)
+                  const SizedBox.shrink()
+                else if (_c.running)
                   Text(
                     '${_c.liveScore} pts',
                     style: const TextStyle(
@@ -156,6 +159,21 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _soundButton() {
+    final on = KaraokeController.builtInSoundEnabled;
+    return IconButton(
+      tooltip: on ? 'Silenciar' : 'Activar sonido',
+      icon: Icon(
+        on ? Icons.volume_up : Icons.volume_off,
+        color: Colors.white,
+      ),
+      onPressed: () {
+        KaraokeController.builtInSoundEnabled = !on;
+        _c.applySound();
+      },
     );
   }
 

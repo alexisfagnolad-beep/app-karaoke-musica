@@ -31,6 +31,23 @@ class SettingsScreen extends StatelessWidget {
               child: StatefulBuilder(
                 builder: (context, setState) => SwitchListTile(
                   secondary: const CircleAvatar(
+                    backgroundColor: Color(0x333DE0C6),
+                    child: Icon(Icons.volume_up, color: AppColors.teal),
+                  ),
+                  title: const Text('Sonido en "Para empezar"'),
+                  subtitle: const Text(
+                    'Que suenen las melodías y los ritmos prediseñados.',
+                  ),
+                  value: KaraokeController.builtInSoundEnabled,
+                  onChanged: (v) =>
+                      setState(() => KaraokeController.builtInSoundEnabled = v),
+                ),
+              ),
+            ),
+            Card(
+              child: StatefulBuilder(
+                builder: (context, setState) => SwitchListTile(
+                  secondary: const CircleAvatar(
                     backgroundColor: Color(0x33FF8A3D),
                     child: Icon(Icons.vibration, color: AppColors.orange),
                   ),
