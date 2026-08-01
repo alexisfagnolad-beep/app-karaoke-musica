@@ -106,14 +106,6 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: _fullKit ? 'Batería simple' : 'Batería completa',
-                  icon: Icon(
-                    _fullKit ? Icons.grid_view : Icons.apps,
-                    color: Colors.white,
-                  ),
-                  onPressed: () => setState(() => _fullKit = !_fullKit),
-                ),
                 if (_c.playAlong) _soundButton(),
                 TempoButton(controller: _c, dark: true),
                 if (!_c.playAlong)
@@ -124,6 +116,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                _optionsMenu(),
               ],
             ),
             if (_c.playAlong && !_c.running)
@@ -177,6 +170,49 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
         KaraokeController.builtInSoundEnabled = !on;
         _c.applySound();
       },
+    );
+  }
+
+  /// Menú de opciones (⋮): modo estricto y cantidad de elementos de la batería.
+  Widget _optionsMenu() {
+    return PopupMenuButton<String>(
+      tooltip: 'Opciones',
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      onSelected: (v) => setState(() {
+        switch (v) {
+          case 'strict':
+            _c.strictDrums = !_c.strictDrums;
+            break;
+          case 'kit_simple':
+            _fullKit = false;
+            break;
+          case 'kit_full':
+            _fullKit = true;
+            break;
+        }
+      }),
+      itemBuilder: (_) => [
+        CheckedPopupMenuItem(
+          value: 'strict',
+          checked: _c.strictDrums,
+          child: const Text('Modo estricto (exigir la pieza correcta)'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          enabled: false,
+          child: Text('Elementos de la batería'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'kit_simple',
+          checked: !_fullKit,
+          child: const Text('Set simple (3 piezas)'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'kit_full',
+          checked: _fullKit,
+          child: const Text('Batería completa'),
+        ),
+      ],
     );
   }
 

@@ -132,6 +132,10 @@ class KaraokeController extends ChangeNotifier {
   /// tocás la nota/golpe correcto en el momento justo (además del virtual).
   bool micPractice = false;
 
+  /// Modo estricto (batería): exige pegarle a la PIEZA correcta, no solo en el
+  /// momento justo. Clasifica el golpe por su color de sonido (grave/medio/agudo).
+  bool strictDrums = false;
+
   /// Teclas apretadas ahora en el piano virtual (multitáctil, para acordes).
   final Set<int> pressedMidis = {};
 
@@ -281,6 +285,26 @@ class KaraokeController extends ChangeNotifier {
     lastBandHitT[b] = clock;
     lastHitT = clock;
     if (_hitOnsets.add(best)) _goodHits++;
+  }
+
+  /// Clasifica un golpe por su "color de sonido" usando la tasa de cruces por
+  /// cero (proxy barato del brillo/centroide, sin FFT):
+  ///  - grave y con pocas cruces  -> bombo (0)
+  ///  - agudo/ruidoso, muchas cruces -> hi-hat (2)
+  ///  - en el medio -> redoblante (1)
+  int _bandOf(List<double> block) {
+    if (block.length < 2) return 1;
+    var crossings = 0;
+    var prev = block[0];
+    for (var i = 1; i < block.length; i++) {
+      final v = block[i];
+      if ((v >= 0) != (prev >= 0)) crossings++;
+      prev = v;
+    }
+    final zcr = crossings / block.length;
+    if (zcr < 0.06) return 0; // bombo
+    if (zcr > 0.20) return 2; // hi-hat
+    return 1; // redoblante
   }
 
   /// Enciende/apaga la práctica con instrumento físico (micrófono). Se aplica
@@ -532,7 +556,9 @@ class KaraokeController extends ChangeNotifier {
         _hits++;
         lastUserHitT = t;
         if (effectsEnabled) HapticFeedback.lightImpact();
-        _registerRhythmHit(t); // físico: golpe cerca de un objetivo -> brilla
+        // Modo estricto: clasificamos la pieza por su color de sonido y exigimos
+        // que coincida. Modo normal: cuenta cualquier golpe en el momento justo.
+        _registerRhythmHit(t, strictDrums ? _bandOf(block) : null);
       }
       notifyListeners();
     } else {
