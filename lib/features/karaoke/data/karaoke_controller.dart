@@ -61,6 +61,12 @@ class KaraokeController extends ChangeNotifier {
   /// afinada. Paralelo a [notes].
   List<double> noteLit = const [];
 
+  /// Tramo acertado de cada barra, como fracción 0..1 (inicio y fin). Permite
+  /// marcar EXACTAMENTE desde dónde empezamos a dar la nota (aunque tarde) hasta
+  /// dónde llegamos, y que quede marcado. Paralelo a [notes].
+  List<double> coverStart = const [];
+  List<double> coverEnd = const [];
+
   /// Índice de la barra activa (la que suena ahora), o null.
   int? activeNote;
 
@@ -181,6 +187,8 @@ class KaraokeController extends ChangeNotifier {
     notes = builtNotes;
     noteLit = List<double>.filled(notes.length, 0);
     noteHit = List<bool>.filled(notes.length, false);
+    coverStart = List<double>.filled(notes.length, 1.0);
+    coverEnd = List<double>.filled(notes.length, 0.0);
     // Precarga el rango del teclado (notas de la canción ± un poco).
     var lo = builtNotes.isEmpty ? 60 : builtNotes.first.midi;
     var hi = lo;
@@ -268,6 +276,24 @@ class KaraokeController extends ChangeNotifier {
     _goodHits++;
   }
 
+  /// Registra que en el instante [t] estamos dando la nota [idx]: acumula la
+  /// fracción cubierta y marca el tramo (desde dónde empezamos hasta ahora),
+  /// para iluminar exactamente lo que logramos aunque hayamos entrado tarde.
+  void _cover(int idx, double t, double dt) {
+    if (idx < 0 || idx >= noteLit.length) return;
+    final dur = notes[idx].duration;
+    if (dur > 0) {
+      noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
+      final frac = ((t - notes[idx].startT) / dur).clamp(0.0, 1.0);
+      if (idx < coverStart.length) {
+        if (frac < coverStart[idx]) coverStart[idx] = frac;
+        if (frac > coverEnd[idx]) coverEnd[idx] = frac;
+      }
+    }
+    lastHitT = t;
+    _markMelodicHit(idx);
+  }
+
   /// Timer que acumula el tramo acertado de la nota activa mientras se mantiene
   /// apretada la tecla correcta (piano virtual). El tramo ya cubierto queda
   /// marcado aunque después soltemos; el destello solo dura mientras cubrimos.
@@ -297,14 +323,7 @@ class KaraokeController extends ChangeNotifier {
         break;
       }
     }
-    if (covering) {
-      final dur = notes[idx].duration;
-      if (dur > 0) {
-        noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
-      }
-      lastHitT = now; // destella mientras cubrimos
-      _markMelodicHit(idx); // marca (y cuenta) una sola vez
-    }
+    if (covering) _cover(idx, now, dt);
   }
 
   /// Un golpe (virtual o físico) cerca de un objetivo cuenta como acierto e
@@ -409,6 +428,8 @@ class KaraokeController extends ChangeNotifier {
     );
     noteLit = List<double>.filled(notes.length, 0);
     noteHit = List<bool>.filled(notes.length, false);
+    coverStart = List<double>.filled(notes.length, 1.0);
+    coverEnd = List<double>.filled(notes.length, 0.0);
   }
 
   /// Cambia la dificultad (rehace las barras). Solo cuando no está corriendo y
@@ -479,6 +500,10 @@ class KaraokeController extends ChangeNotifier {
     _livePitch = null;
     if (noteLit.isNotEmpty) noteLit = List<double>.filled(notes.length, 0);
     if (noteHit.isNotEmpty) noteHit = List<bool>.filled(notes.length, false);
+    if (notes.isNotEmpty) {
+      coverStart = List<double>.filled(notes.length, 1.0);
+      coverEnd = List<double>.filled(notes.length, 0.0);
+    }
     pressedMidis.clear();
     tappedBand = -1;
     lastBandHitT[0] = lastBandHitT[1] = lastBandHitT[2] = -1;
@@ -655,16 +680,8 @@ class KaraokeController extends ChangeNotifier {
         _lastHapticNote = idx;
         HapticFeedback.selectionClick();
       }
-      // Iluminar la barra en proporción al tiempo cantado afinado.
-      final dur = notes[idx].duration;
-      if (dur > 0) {
-        noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
-      }
-      // Cantar/tocar afinado la nota cuenta como acierto (brilla al pasar).
-      if (diff.abs() <= _hitTolerance) {
-        _markMelodicHit(idx);
-        lastHitT = t;
-      }
+      // Marca el tramo cantado afinado desde donde empezamos (aunque tarde).
+      _cover(idx, t, dt);
       // Sumar puntos: más cerca de la nota y más sostenido = más puntaje.
       final closeness = (1.0 - diff.abs() / onPitchTolerance).clamp(0.0, 1.0);
       _liveScore += dt * (60 + 40 * closeness);

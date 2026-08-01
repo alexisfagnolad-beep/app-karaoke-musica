@@ -229,8 +229,11 @@ class _LearnPainter extends CustomPainter {
       if (x1 < -8 || x0 > size.width + 8) continue;
       final d = _dindex(n.midi);
       final y = yForD(d);
-      // Fracción acertada (queda marcada aunque después soltemos la tecla).
-      final frac = i < c.noteLit.length ? c.noteLit[i] : 0.0;
+      // Tramo acertado (fracción inicio/fin dentro de la barra): queda marcado
+      // exactamente desde donde empezamos a dar la nota, aunque hayamos entrado
+      // tarde.
+      final cs = i < c.coverStart.length ? c.coverStart[i] : 1.0;
+      final ce = i < c.coverEnd.length ? c.coverEnd[i] : 0.0;
 
       _ledgerLines(canvas, d, (x0 + x1) / 2, yForD, noteH, size.width);
 
@@ -240,12 +243,13 @@ class _LearnPainter extends CustomPainter {
       );
       // Base con el color de la nota.
       canvas.drawRRect(rect, Paint()..color = kNoteColors[n.midi % 12]);
-      // Tramo acertado: verde, marcado de forma permanente.
-      if (frac > 0) {
-        final xc = (x0 + (x1 - x0) * frac).clamp(x0, x1);
+      // Tramo acertado: verde, marcado de forma permanente, en su lugar real.
+      if (ce > cs) {
+        final xa = x0 + (x1 - x0) * cs;
+        final xb = x0 + (x1 - x0) * ce;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTRB(x0, y - noteH / 2, xc, y + noteH / 2),
+            Rect.fromLTRB(xa, y - noteH / 2, xb, y + noteH / 2),
             Radius.circular(noteH / 2),
           ),
           Paint()..color = _kHit,
@@ -298,47 +302,73 @@ class _LearnPainter extends CustomPainter {
     }
   }
 
-  /// Clave de sol estilizada: eje vertical curvo + bucle rodeando la línea de
-  /// Sol (dindex 39) + rulito arriba + puntito abajo. Se dibuja con vectores
-  /// para que se vea siempre igual (sin depender de fuentes musicales).
+  /// Clave de sol dibujada con vectores (se ve igual en todos los celulares):
+  /// una gran "S" (rulo arriba + panza a la izquierda) que baja hasta un ojo en
+  /// espiral centrado en la línea de Sol (dindex 39), con la cola y el puntito.
   void _drawClef(
     Canvas canvas,
     double x,
     double Function(int) yForD,
     double s,
   ) {
-    final yG = yForD(39);
-    final top = yForD(45) - s * 1.6;
-    final bottom = yForD(37) + s * 1.2;
+    final yG = yForD(39); // línea de Sol (centro del ojo)
+    final top = yForD(45) - s * 2.1; // punta, sobre el pentagrama
+    final bottom = yForD(37) + s * 1.5; // cola, bajo el pentagrama
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.32
+      ..strokeWidth = s * 0.26
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.9);
+      ..strokeJoin = StrokeJoin.round
+      ..color = Colors.white.withValues(alpha: 0.92);
 
-    final axis = Path()
-      ..moveTo(x, top)
-      ..cubicTo(x + s * 0.9, yG - s * 1.5, x - s * 0.9, yG + s * 0.5, x, bottom);
-    canvas.drawPath(axis, paint);
+    final eyeCy = yG + s * 0.15;
 
-    canvas.drawCircle(Offset(x, yG + s * 0.35), s * 0.9, paint);
-
-    final curl = Path()
-      ..moveTo(x, top)
+    // Cuerpo: rulo arriba, baja por la derecha, panza a la izquierda y entra al
+    // ojo. Termina en el centro del ojo (donde arranca la espiral).
+    final body = Path()
+      ..moveTo(x + s * 0.05, bottom) // cola abajo
       ..cubicTo(
-        x - s * 0.9,
-        top + s * 0.2,
-        x - s * 0.8,
-        top + s * 1.2,
-        x + s * 0.1,
-        top + s * 1.1,
+        x + s * 0.05, yG + s * 1.4, // sube recto (tallo)
+        x + s * 0.05, top + s * 1.2,
+        x + s * 0.05, top + s * 0.9,
+      )
+      ..cubicTo(
+        x + s * 0.05, top + s * 0.1, // rulo superior a la izquierda
+        x - s * 0.95, top - s * 0.05,
+        x - s * 0.9, top + s * 0.9,
+      )
+      ..cubicTo(
+        x - s * 0.85, top + s * 1.9, // baja por la panza derecha
+        x + s * 1.15, yG - s * 1.7,
+        x + s * 0.9, yG - s * 0.35,
+      )
+      ..cubicTo(
+        x + s * 0.7, yG + s * 0.7, // panza izquierda grande
+        x - s * 1.35, yG + s * 0.6,
+        x - s * 1.15, yG - s * 0.25,
+      )
+      ..cubicTo(
+        x - s * 1.0, yG - s * 0.95, // sube hacia el ojo por la izquierda
+        x + s * 0.9, yG - s * 0.9,
+        x + s * 0.85, eyeCy - s * 0.05,
+      )
+      ..cubicTo(
+        x + s * 0.8, eyeCy + s * 0.75, // cierra el ojo (espiral)
+        x - s * 0.55, eyeCy + s * 0.7,
+        x - s * 0.45, eyeCy + s * 0.05,
+      )
+      ..cubicTo(
+        x - s * 0.38, eyeCy - s * 0.45,
+        x + s * 0.25, eyeCy - s * 0.4,
+        x + s * 0.15, eyeCy,
       );
-    canvas.drawPath(curl, paint);
+    canvas.drawPath(body, paint);
 
+    // Puntito de la cola.
     canvas.drawCircle(
-      Offset(x, bottom + s * 0.1),
-      s * 0.26,
-      Paint()..color = Colors.white.withValues(alpha: 0.9),
+      Offset(x + s * 0.05, bottom + s * 0.12),
+      s * 0.24,
+      Paint()..color = Colors.white.withValues(alpha: 0.92),
     );
   }
 

@@ -7,6 +7,7 @@ import '../domain/lyrics.dart';
 import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import 'drum_roll_view.dart';
+import 'karaoke_backdrop.dart';
 import 'lyrics_view.dart';
 import 'piano_roll_view.dart';
 import 'pitch_roll_view.dart';
@@ -173,7 +174,7 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
                 ? DrumRollView(controller: _c)
                 : (_pianoView
                       ? PianoRollView(controller: _c)
-                      : PitchRollView(controller: _c)),
+                      : _singingStage()),
           ),
           if (!_c.isRhythm &&
               !_pianoView &&
@@ -207,6 +208,22 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
                 minimumSize: const Size.fromHeight(56),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// "Escenario" del karaoke: fondo lindo (degradé + notas flotando) con la
+  /// guía de barras encima. Un velo oscuro suave mantiene legibles las barras.
+  Widget _singingStage() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const KaraokeBackdrop(),
+          Container(color: Colors.black.withValues(alpha: 0.30)),
+          PitchRollView(controller: _c),
         ],
       ),
     );

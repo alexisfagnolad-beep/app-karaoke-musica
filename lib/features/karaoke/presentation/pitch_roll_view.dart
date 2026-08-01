@@ -171,14 +171,16 @@ class _PitchRollPainter extends CustomPainter {
       );
       canvas.drawRRect(rect, basePaint);
 
-      final litFrac = i < controller.noteLit.length
-          ? controller.noteLit[i]
-          : 0.0;
-      if (litFrac > 0) {
-        final fillW = math.max(2.0, (x1 - x0) * litFrac);
+      // Tramo acertado, marcado en su lugar real (desde dónde empezamos a
+      // cantar la nota hasta dónde llegamos), aunque hayamos entrado tarde.
+      final cs = i < controller.coverStart.length ? controller.coverStart[i] : 1.0;
+      final ce = i < controller.coverEnd.length ? controller.coverEnd[i] : 0.0;
+      if (ce > cs) {
+        final xa = x0 + (x1 - x0) * cs;
+        final xb = x0 + (x1 - x0) * ce;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(x0, y - barH / 2, fillW, barH),
+            Rect.fromLTWH(xa, y - barH / 2, math.max(2.0, xb - xa), barH),
             Radius.circular(barH / 2),
           ),
           litPaint,
