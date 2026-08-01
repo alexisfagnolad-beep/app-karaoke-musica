@@ -5,7 +5,8 @@ import '../../library/presentation/library_screen.dart';
 import '../../pitch/presentation/live_pitch_screen.dart';
 import '../../player/presentation/player_screen.dart';
 import '../../../shared/ui/mascot.dart';
-import '../../karaoke/presentation/built_in_screen.dart';
+import '../../karaoke/presentation/cantar_screen.dart';
+import '../../karaoke/presentation/practica_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../sync/data/sync_service.dart';
 import '../../update/data/update_service.dart';
@@ -144,40 +145,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             _FunTile(
                               size: w,
-                              icon: Icons.auto_awesome,
-                              label: 'Para empezar',
-                              colors: const [
-                                Color(0xFFFFC24D),
-                                Color(0xFFFF8A3D),
-                              ],
-                              onTap: () => _push(const BuiltInScreen()),
-                            ),
-                            _FunTile(
-                              size: w,
                               icon: Icons.mic_external_on,
                               label: 'Cantar',
                               colors: const [
                                 Color(0xFFFF6FA5),
                                 Color(0xFFE0457B),
                               ],
-                              onTap: () => _push(
-                                const LibraryScreen(
-                                  initialInstrument: 'Voz',
-                                  titleOverride: 'Cantar',
-                                ),
-                              ),
+                              onTap: () => _push(const CantarScreen()),
                             ),
                             _FunTile(
                               size: w,
                               icon: Icons.piano,
-                              label: 'Instrumentos',
+                              label: 'Práctica de instrumento',
                               colors: const [
                                 Color(0xFF3DE0C6),
                                 Color(0xFF1DB6A2),
                               ],
-                              onTap: () => _push(
-                                const LibraryScreen(titleOverride: 'Practicar'),
-                              ),
+                              onTap: () => _push(const PracticaScreen()),
                             ),
                             _FunTile(
                               size: w,
@@ -367,12 +351,17 @@ class _FunTile extends StatelessWidget {
                     ),
                     child: Icon(icon, size: 30, color: Colors.white),
                   ),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        height: 1.1,
+                      ),
                     ),
                   ),
                 ],

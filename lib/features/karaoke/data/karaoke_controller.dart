@@ -142,6 +142,10 @@ class KaraokeController extends ChangeNotifier {
   /// momento justo. Clasifica el golpe por su color de sonido (grave/medio/agudo).
   bool strictDrums = false;
 
+  /// Cantar una canción prediseñada: play-along melódico con micrófono para
+  /// puntuar la voz, pero manteniendo la melodía guía sonando (no la silencia).
+  bool builtInSing = false;
+
   /// Teclas apretadas ahora en el piano virtual (multitáctil, para acordes).
   final Set<int> pressedMidis = {};
 
@@ -532,7 +536,8 @@ class KaraokeController extends ChangeNotifier {
         _running = true;
         await player.seek(Duration.zero);
         await player.setSpeed(tempo);
-        final soundOn = builtInSoundEnabled && !micPractice;
+        // Al cantar prediseñado, la melodía guía sigue sonando (no se silencia).
+        final soundOn = builtInSoundEnabled && (!micPractice || builtInSing);
         await player.setVolume(soundOn ? 1.0 : 0.0);
         player.play();
         _startCoverTimer();

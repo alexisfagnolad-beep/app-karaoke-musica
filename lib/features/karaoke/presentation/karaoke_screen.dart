@@ -26,13 +26,32 @@ class KaraokeScreen extends StatefulWidget {
     this.lyrics,
     this.freeMode = false,
     this.pianoView = false,
-  });
+  }) : builtInNotes = null,
+       builtInDuration = null;
 
-  final String instrumentalPath;
+  /// Cantar una canción prediseñada (Estrellita, Oda a la Alegría, …): sin PC.
+  /// Suena la melodía guía y el micrófono puntúa tu voz.
+  const KaraokeScreen.builtIn({
+    super.key,
+    required this.title,
+    required List<MelodyNote> notes,
+    required double duration,
+  }) : builtInNotes = notes,
+       builtInDuration = duration,
+       instrumentalPath = null,
+       melody = null,
+       rhythm = null,
+       lyrics = null,
+       freeMode = false,
+       pianoView = false;
+
+  final String? instrumentalPath;
   final String title;
   final Melody? melody;
   final Rhythm? rhythm;
   final Lyrics? lyrics;
+  final List<MelodyNote>? builtInNotes;
+  final double? builtInDuration;
 
   /// Modo "Solo letra": reproduce con barras y letra, sin micrófono ni puntaje.
   final bool freeMode;
@@ -52,11 +71,16 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.rhythm != null) {
-      _c.loadRhythmic(widget.instrumentalPath, widget.rhythm!);
+    if (widget.builtInNotes != null) {
+      // Cantar prediseñado: melodía guía + micrófono para puntuar la voz.
+      _c.loadBuiltInMelodic(widget.builtInNotes!, widget.builtInDuration!);
+      _c.builtInSing = true;
+      _c.micPractice = true;
+    } else if (widget.rhythm != null) {
+      _c.loadRhythmic(widget.instrumentalPath!, widget.rhythm!);
     } else if (widget.melody != null) {
       _c.loadMelodic(
-        widget.instrumentalPath,
+        widget.instrumentalPath!,
         widget.melody!,
         freeMode: widget.freeMode,
         // Arranca en Fácil: barras largas y pegadas, línea melódica amigable.
