@@ -38,7 +38,7 @@ class DrumLearnScreen extends StatefulWidget {
 
 class _DrumLearnScreenState extends State<DrumLearnScreen> {
   final KaraokeController _c = KaraokeController();
-  bool _fullKit = false;
+  final Set<String> _pieces = {...kDefaultPieces};
 
   @override
   void initState() {
@@ -74,7 +74,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              DrumLearnView(controller: _c, fullKit: _fullKit),
+              DrumLearnView(controller: _c, pieces: _pieces),
               _overlay(),
             ],
           );
@@ -173,48 +173,94 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
     );
   }
 
-  /// Menú de opciones (⋮): modo estricto y cantidad de elementos de la batería.
+  /// Menú de opciones (⋮): modo estricto y elección de piezas de la batería.
   Widget _optionsMenu() {
     return PopupMenuButton<String>(
       tooltip: 'Opciones',
       icon: const Icon(Icons.more_vert, color: Colors.white),
-      onSelected: (v) => setState(() {
+      onSelected: (v) {
         switch (v) {
           case 'strict':
-            _c.strictDrums = !_c.strictDrums;
+            setState(() => _c.strictDrums = !_c.strictDrums);
             break;
-          case 'kit_simple':
-            _fullKit = false;
-            break;
-          case 'kit_full':
-            _fullKit = true;
+          case 'pieces':
+            _choosePieces();
             break;
         }
-      }),
+      },
       itemBuilder: (_) => [
         CheckedPopupMenuItem(
           value: 'strict',
           checked: _c.strictDrums,
           child: const Text('Modo estricto (exigir la pieza correcta)'),
         ),
-        const PopupMenuDivider(),
         const PopupMenuItem(
-          enabled: false,
-          child: Text('Elementos de la batería'),
-        ),
-        CheckedPopupMenuItem(
-          value: 'kit_simple',
-          checked: !_fullKit,
-          child: const Text('Set simple (3 piezas)'),
-        ),
-        CheckedPopupMenuItem(
-          value: 'kit_full',
-          checked: _fullKit,
-          child: const Text('Batería completa'),
+          value: 'pieces',
+          child: Text('Elegir piezas de la batería…'),
         ),
       ],
     );
   }
+
+  /// Diálogo con casillas para tildar qué piezas tiene la batería.
+  Future<void> _choosePieces() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Piezas de la batería'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: StatefulBuilder(
+              builder: (ctx, setD) => ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final p in kDrumPieces)
+                    CheckboxListTile(
+                      dense: true,
+                      title: Text(p.label),
+                      subtitle: Text(_bandName(p.band)),
+                      value: _pieces.contains(p.id),
+                      onChanged: (v) => setD(() {
+                        if (v == true) {
+                          _pieces.add(p.id);
+                        } else {
+                          _pieces.remove(p.id);
+                        }
+                        setState(() {});
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _pieces
+                    ..clear()
+                    ..addAll(kDefaultPieces);
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Restablecer'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Listo'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _bandName(int band) => switch (band) {
+    0 => 'suena como bombo (grave)',
+    1 => 'suena como redoblante (medio)',
+    _ => 'suena como hi-hat (agudo)',
+  };
 
   /// Toggle bien visible: tocar con instrumento REAL (micrófono). Antes de
   /// empezar. Al activarlo, la app escucha tu batería/piano físico.

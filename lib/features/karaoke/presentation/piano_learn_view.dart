@@ -217,6 +217,9 @@ class _LearnPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
     }
 
+    // Clave de sol (a la izquierda). El bucle rodea la línea de Sol (2ª de abajo).
+    _drawClef(canvas, staffSpace * 1.9, yForD, staffSpace);
+
     // Notas fluyendo (barras de color). Si ya fueron acertadas, brillan.
     final noteH = staffSpace * 0.95;
     for (var i = 0; i < notes.length; i++) {
@@ -226,8 +229,8 @@ class _LearnPainter extends CustomPainter {
       if (x1 < -8 || x0 > size.width + 8) continue;
       final d = _dindex(n.midi);
       final y = yForD(d);
-      final hit = i < c.noteHit.length && c.noteHit[i];
-      final color = hit ? _kHit : kNoteColors[n.midi % 12];
+      // Fracción acertada (queda marcada aunque después soltemos la tecla).
+      final frac = i < c.noteLit.length ? c.noteLit[i] : 0.0;
 
       _ledgerLines(canvas, d, (x0 + x1) / 2, yForD, noteH, size.width);
 
@@ -235,15 +238,34 @@ class _LearnPainter extends CustomPainter {
         Rect.fromLTRB(x0, y - noteH / 2, x1, y + noteH / 2),
         Radius.circular(noteH / 2),
       );
-      if (hit) {
+      // Base con el color de la nota.
+      canvas.drawRRect(rect, Paint()..color = kNoteColors[n.midi % 12]);
+      // Tramo acertado: verde, marcado de forma permanente.
+      if (frac > 0) {
+        final xc = (x0 + (x1 - x0) * frac).clamp(x0, x1);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTRB(x0, y - noteH / 2, xc, y + noteH / 2),
+            Radius.circular(noteH / 2),
+          ),
+          Paint()..color = _kHit,
+        );
+      }
+      // Destello mientras estamos acertando ESTA nota (deja de destellar al
+      // soltar, pero el tramo marcado queda).
+      final flashing =
+          c.activeNote == i &&
+          c.lastHitT >= 0 &&
+          (pos - c.lastHitT) >= 0 &&
+          (pos - c.lastHitT) < 0.15;
+      if (flashing) {
         canvas.drawRRect(
           rect,
           Paint()
-            ..color = _kHit
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+            ..color = _kHit.withValues(alpha: 0.9)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
         );
       }
-      canvas.drawRRect(rect, Paint()..color = color);
       if (!_whitePc.contains(n.midi % 12)) {
         _text(canvas, '♯', Offset(x0 - 10, y), Colors.white, 13);
       }
@@ -274,6 +296,50 @@ class _LearnPainter extends CustomPainter {
         26,
       );
     }
+  }
+
+  /// Clave de sol estilizada: eje vertical curvo + bucle rodeando la línea de
+  /// Sol (dindex 39) + rulito arriba + puntito abajo. Se dibuja con vectores
+  /// para que se vea siempre igual (sin depender de fuentes musicales).
+  void _drawClef(
+    Canvas canvas,
+    double x,
+    double Function(int) yForD,
+    double s,
+  ) {
+    final yG = yForD(39);
+    final top = yForD(45) - s * 1.6;
+    final bottom = yForD(37) + s * 1.2;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.32
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.9);
+
+    final axis = Path()
+      ..moveTo(x, top)
+      ..cubicTo(x + s * 0.9, yG - s * 1.5, x - s * 0.9, yG + s * 0.5, x, bottom);
+    canvas.drawPath(axis, paint);
+
+    canvas.drawCircle(Offset(x, yG + s * 0.35), s * 0.9, paint);
+
+    final curl = Path()
+      ..moveTo(x, top)
+      ..cubicTo(
+        x - s * 0.9,
+        top + s * 0.2,
+        x - s * 0.8,
+        top + s * 1.2,
+        x + s * 0.1,
+        top + s * 1.1,
+      );
+    canvas.drawPath(curl, paint);
+
+    canvas.drawCircle(
+      Offset(x, bottom + s * 0.1),
+      s * 0.26,
+      Paint()..color = Colors.white.withValues(alpha: 0.9),
+    );
   }
 
   void _ledgerLines(
@@ -349,10 +415,13 @@ class _LearnPainter extends CustomPainter {
       }
     }
     final targetMidi = targetIdx != null ? notes[targetIdx].midi as int : null;
+    // La tecla objetivo brilla fuerte MIENTRAS acertamos (destello); al soltar
+    // deja de brillar.
     final targetHit =
         targetIdx != null &&
-        targetIdx < c.noteHit.length &&
-        c.noteHit[targetIdx];
+        c.lastHitT >= 0 &&
+        (pos - c.lastHitT) >= 0 &&
+        (pos - c.lastHitT) < 0.15;
 
     // Blancas con sticker de color.
     for (var i = 0; i < whites.length; i++) {

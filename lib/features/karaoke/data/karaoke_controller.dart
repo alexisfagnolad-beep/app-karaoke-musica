@@ -155,6 +155,11 @@ class KaraokeController extends ChangeNotifier {
   int _goodHits = 0;
   final Set<int> _hitOnsets = {};
 
+  // Acumulación de "cobertura" de las notas mientras se mantiene la tecla
+  // correcta (para que se marque el tramo acertado de una nota larga).
+  Timer? _coverTimer;
+  double? _coverLastT;
+
   /// Semitonos de tolerancia para considerar "acertada" una tecla/nota tocada.
   static const double _hitTolerance = 1.0;
 
@@ -253,14 +258,53 @@ class KaraokeController extends ChangeNotifier {
     if (octaveFoldedDiff(midi.toDouble(), notes[idx].midi).abs() <=
         _hitTolerance) {
       _markMelodicHit(idx);
+      lastHitT = clock;
     }
   }
 
   void _markMelodicHit(int idx) {
     if (idx < 0 || idx >= noteHit.length || noteHit[idx]) return;
     noteHit[idx] = true;
-    lastHitT = clock;
     _goodHits++;
+  }
+
+  /// Timer que acumula el tramo acertado de la nota activa mientras se mantiene
+  /// apretada la tecla correcta (piano virtual). El tramo ya cubierto queda
+  /// marcado aunque después soltemos; el destello solo dura mientras cubrimos.
+  void _startCoverTimer() {
+    if (isRhythm) return;
+    _coverLastT = null;
+    _coverTimer?.cancel();
+    _coverTimer = Timer.periodic(const Duration(milliseconds: 50), _coverTick);
+  }
+
+  void _coverTick(Timer t) {
+    if (_disposed || !_running) {
+      t.cancel();
+      return;
+    }
+    final now = clock;
+    final dt = _coverLastT == null ? 0.0 : (now - _coverLastT!).clamp(0.0, 0.12);
+    _coverLastT = now;
+    final idx = _noteIndexAt(now);
+    activeNote = idx;
+    if (idx == null || idx >= noteLit.length) return;
+    final target = notes[idx].midi;
+    var covering = false;
+    for (final m in pressedMidis) {
+      if (octaveFoldedDiff(m.toDouble(), target).abs() <= _hitTolerance) {
+        covering = true;
+        break;
+      }
+    }
+    if (covering) {
+      final dur = notes[idx].duration;
+      if (dur > 0) {
+        noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
+      }
+      lastHitT = now; // destella mientras cubrimos
+      _markMelodicHit(idx); // marca (y cuenta) una sola vez
+    }
   }
 
   /// Un golpe (virtual o físico) cerca de un objetivo cuenta como acierto e
@@ -466,6 +510,7 @@ class KaraokeController extends ChangeNotifier {
         final soundOn = builtInSoundEnabled && !micPractice;
         await player.setVolume(soundOn ? 1.0 : 0.0);
         player.play();
+        _startCoverTimer();
         notifyListeners();
       } catch (e) {
         _error = 'No se pudo iniciar: $e';
@@ -502,6 +547,7 @@ class KaraokeController extends ChangeNotifier {
       await player.seek(Duration.zero);
       await player.setSpeed(tempo);
       player.play();
+      _startCoverTimer();
       notifyListeners();
     } catch (e) {
       _error = 'No se pudo iniciar: $e';
@@ -615,7 +661,10 @@ class KaraokeController extends ChangeNotifier {
         noteLit[idx] = (noteLit[idx] + dt / dur).clamp(0.0, 1.0);
       }
       // Cantar/tocar afinado la nota cuenta como acierto (brilla al pasar).
-      if (diff.abs() <= _hitTolerance) _markMelodicHit(idx);
+      if (diff.abs() <= _hitTolerance) {
+        _markMelodicHit(idx);
+        lastHitT = t;
+      }
       // Sumar puntos: más cerca de la nota y más sostenido = más puntaje.
       final closeness = (1.0 - diff.abs() / onPitchTolerance).clamp(0.0, 1.0);
       _liveScore += dt * (60 + 40 * closeness);
@@ -640,6 +689,7 @@ class KaraokeController extends ChangeNotifier {
   Future<void> finish() async {
     if (_disposed || !_running) return;
     _running = false;
+    _coverTimer?.cancel();
     if (_micActive) {
       _micActive = false;
       try {
@@ -703,6 +753,7 @@ class KaraokeController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _coverTimer?.cancel();
     if (_micActive) {
       _capture.stop();
     }

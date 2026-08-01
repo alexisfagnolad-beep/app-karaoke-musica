@@ -4,6 +4,49 @@ import '../data/karaoke_controller.dart';
 
 const Color _kHit = Color(0xFF4AE3B5);
 
+/// Una pieza de la batería dibujada. [band] la asocia a lo que la app detecta
+/// (0 grave/bombo, 1 medio/redoblante, 2 agudo/hi-hat); varias piezas pueden
+/// compartir banda. [x],[y] son fracción del alto/ancho; [size] fracción del
+/// ancho. [cymbal] la dibuja como platillo (óvalo).
+class DrumPieceDef {
+  final String id;
+  final String label;
+  final int band;
+  final double x;
+  final double y;
+  final double size;
+  final bool cymbal;
+
+  const DrumPieceDef(
+    this.id,
+    this.label,
+    this.band, {
+    required this.x,
+    required this.y,
+    required this.size,
+    this.cymbal = false,
+  });
+}
+
+/// Catálogo de piezas disponibles para armar la batería.
+const List<DrumPieceDef> kDrumPieces = [
+  DrumPieceDef('crash', 'Platillo (crash)', 2, x: 0.17, y: 0.66, size: 0.10,
+      cymbal: true),
+  DrumPieceDef('ride', 'Ride', 2, x: 0.84, y: 0.64, size: 0.11, cymbal: true),
+  DrumPieceDef('hihat', 'Hi-hat', 2, x: 0.69, y: 0.75, size: 0.095,
+      cymbal: true),
+  DrumPieceDef('tom1', 'Tom 1', 1, x: 0.40, y: 0.73, size: 0.058),
+  DrumPieceDef('tom2', 'Tom 2', 1, x: 0.56, y: 0.73, size: 0.058),
+  DrumPieceDef('floor', 'Tom piso', 1, x: 0.87, y: 0.84, size: 0.072),
+  DrumPieceDef('snare', 'Redoblante', 1, x: 0.27, y: 0.83, size: 0.07),
+  DrumPieceDef('chancha', 'Chancha', 1, x: 0.13, y: 0.89, size: 0.066),
+  DrumPieceDef('kick', 'Bombo', 0, x: 0.50, y: 0.90, size: 0.11),
+  DrumPieceDef('leguero', 'Bombo legüero', 0, x: 0.30, y: 0.93, size: 0.085),
+];
+
+/// Piezas por defecto (las 3 que la app distingue por sonido).
+const Set<String> kDefaultPieces = {'kick', 'snare', 'hihat'};
+
 /// Vista de batería estilo Guitar Hero (horizontal): notas cayendo por
 /// carriles que terminan en una batería dibujada abajo. Cuando la nota llega,
 /// el chico golpea esa parte real; la parte se ilumina en la app.
@@ -11,13 +54,13 @@ class DrumLearnView extends StatefulWidget {
   const DrumLearnView({
     super.key,
     required this.controller,
-    this.fullKit = false,
+    this.pieces = kDefaultPieces,
   });
 
   final KaraokeController controller;
 
-  /// true dibuja una batería completa (toms, crash, ride); false, un set simple.
-  final bool fullKit;
+  /// Piezas elegidas para dibujar (ids del catálogo [kDrumPieces]).
+  final Set<String> pieces;
 
   @override
   State<DrumLearnView> createState() => _DrumLearnViewState();
@@ -50,7 +93,7 @@ class _DrumLearnViewState extends State<DrumLearnView>
                 painter: _DrumLearnPainter(
                   widget.controller,
                   _ticker,
-                  widget.fullKit,
+                  widget.pieces,
                 ),
                 size: Size.infinite,
               ),
@@ -106,11 +149,11 @@ class _DrumLearnViewState extends State<DrumLearnView>
 }
 
 class _DrumLearnPainter extends CustomPainter {
-  _DrumLearnPainter(this.c, Listenable repaint, this.fullKit)
+  _DrumLearnPainter(this.c, Listenable repaint, this.pieces)
     : super(repaint: repaint);
 
   final KaraokeController c;
-  final bool fullKit;
+  final Set<String> pieces;
 
   // En "Para empezar" (play-along) las notas caen más despacio y se leen mejor.
   double get lookahead => c.playAlong ? 3.0 : 2.2;
@@ -121,7 +164,6 @@ class _DrumLearnPainter extends CustomPainter {
     Color(0xFFFFCA28), // redoblante amarillo
     Color(0xFF29B6F6), // hi-hat celeste
   ];
-  static const List<String> names = ['Bombo', 'Redob.', 'Hi-hat'];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -253,105 +295,21 @@ class _DrumLearnPainter extends CustomPainter {
   void _drawKit(Canvas canvas, Size size, double top, List<bool> lit) {
     final w = size.width;
     final h = size.height;
-    const grey = Color(0xFF3A3A46);
-
-    if (fullKit) {
-      // Batería completa (front view). Solo bombo/redoblante/hi-hat se
-      // iluminan (son los que la IA distingue); el resto es decorativo.
-      // Platillos.
-      _cymbal(
-        canvas,
-        Offset(w * 0.20, top + (h - top) * 0.12),
-        w * 0.11,
-        grey,
-        false,
-      ); // crash
-      _cymbal(
-        canvas,
-        Offset(w * 0.80, top + (h - top) * 0.10),
-        w * 0.12,
-        grey,
-        false,
-      ); // ride
-      // Hi-hat (activo).
-      _cymbal(
-        canvas,
-        Offset(w * 0.66, top + (h - top) * 0.28),
-        w * 0.10,
-        colors[2],
-        lit[2],
-      );
-      _label(canvas, 'Hi-hat', Offset(w * 0.66, top + (h - top) * 0.28));
-      // Toms (decorativos).
-      _drum(canvas, Offset(w * 0.42, h * 0.72), w * 0.06, grey, false);
-      _drum(canvas, Offset(w * 0.58, h * 0.72), w * 0.06, grey, false);
-      _drum(
-        canvas,
-        Offset(w * 0.86, h * 0.80),
-        w * 0.075,
-        grey,
-        false,
-      ); // floor
-      // Redoblante (activo).
-      _drum(
-        canvas,
-        Offset(w * 0.28, h * 0.80),
-        w * 0.07,
-        colors[1],
-        lit[1],
-      );
-      _label(canvas, 'Redob.', Offset(w * 0.28, h * 0.80));
-      // Bombo (activo, grande, centro).
-      _drum(
-        canvas,
-        Offset(w * 0.5, h * 0.88),
-        w * 0.11,
-        colors[0],
-        lit[0],
-      );
-      _label(canvas, 'Bombo', Offset(w * 0.5, h * 0.88));
-      return;
+    // Dibuja las piezas elegidas (en el orden del catálogo: platillos y toms
+    // atrás, bombo/redoblante adelante). Cada pieza se ilumina si su banda fue
+    // acertada.
+    for (final def in kDrumPieces) {
+      if (!pieces.contains(def.id)) continue;
+      final center = Offset(w * def.x, h * def.y);
+      final on = lit[def.band.clamp(0, 2)];
+      final color = colors[def.band.clamp(0, 2)];
+      if (def.cymbal) {
+        _cymbal(canvas, center, w * def.size, color, on);
+      } else {
+        _drum(canvas, center, w * def.size, color, on);
+      }
+      _label(canvas, def.label, center);
     }
-
-    // Set simple: 3 piezas grandes.
-    _cymbal(
-      canvas,
-      Offset(w * 0.14, top + (h - top) * 0.18),
-      w * 0.11,
-      grey,
-      false,
-    );
-    _cymbal(
-      canvas,
-      Offset(w * 0.86, top + (h - top) * 0.18),
-      w * 0.11,
-      grey,
-      false,
-    );
-    _cymbal(
-      canvas,
-      Offset(w * 0.72, top + (h - top) * 0.30),
-      w * 0.12,
-      colors[2],
-      lit[2],
-    );
-    _label(canvas, names[2], Offset(w * 0.72, top + (h - top) * 0.30));
-    _drum(
-      canvas,
-      Offset(w * 0.28, h * 0.82),
-      w * 0.075,
-      colors[1],
-      lit[1],
-    );
-    _label(canvas, names[1], Offset(w * 0.28, h * 0.82));
-    _drum(
-      canvas,
-      Offset(w * 0.5, h * 0.86),
-      w * 0.11,
-      colors[0],
-      lit[0],
-    );
-    _label(canvas, names[0], Offset(w * 0.5, h * 0.86));
   }
 
   void _drum(Canvas canvas, Offset c, double r, Color color, bool on) {
