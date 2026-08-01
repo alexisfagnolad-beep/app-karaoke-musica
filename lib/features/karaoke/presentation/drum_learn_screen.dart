@@ -116,6 +116,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                if (_c.running) ...[const SizedBox(width: 6), _stopButton()],
                 _optionsMenu(),
               ],
             ),
@@ -125,25 +126,18 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                 child: _physicalToggle('batería'),
               ),
             const Spacer(),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: _c.running
-                  ? FloatingActionButton.extended(
-                      heroTag: 'stopd',
-                      backgroundColor: Colors.white24,
-                      onPressed: _c.stop,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Terminar'),
-                    )
-                  : FloatingActionButton.extended(
-                      heroTag: 'playd',
-                      backgroundColor: AppColors.pink,
-                      foregroundColor: Colors.white,
-                      onPressed: _c.start,
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Empezar a tocar'),
-                    ),
-            ),
+            if (!_c.running)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: FloatingActionButton.extended(
+                  heroTag: 'playd',
+                  backgroundColor: AppColors.pink,
+                  foregroundColor: Colors.white,
+                  onPressed: _c.start,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Empezar a tocar'),
+                ),
+              ),
             if (_c.error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -154,6 +148,20 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _stopButton() {
+    return FilledButton.icon(
+      onPressed: _c.stop,
+      icon: const Icon(Icons.stop, size: 18),
+      label: const Text('Terminar'),
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.white24,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }

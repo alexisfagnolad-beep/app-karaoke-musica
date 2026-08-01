@@ -91,7 +91,10 @@ class _CelebrationState extends State<Celebration>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    // Horizontal (juegos de piano/batería): todo más compacto y en fila, para
+    // que entre completo sin scrollear.
+    final landscape = size.width > size.height;
     return Stack(
       children: [
         if (_confetti.isNotEmpty)
@@ -102,45 +105,87 @@ class _CelebrationState extends State<Celebration>
           ),
         Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_face, style: const TextStyle(fontSize: 72)),
-                const SizedBox(height: 4),
-                Text(
-                  _headline,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _Stars(count: _stars, anim: _anim),
-                const SizedBox(height: 16),
-                ScoreRing(score: widget.score, size: 150),
-                if (widget.details.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  ...widget.details,
-                ],
-                const SizedBox(height: 28),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton(
-                      onPressed: widget.onBack,
-                      child: const Text('Volver'),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: widget.onRetry,
-                      icon: const Icon(Icons.replay),
-                      label: const Text('Otra vez'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.all(16),
+            child: landscape ? _landscape(context) : _portrait(context),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buttons() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedButton(
+          onPressed: widget.onBack,
+          child: const Text('Volver'),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.icon(
+          onPressed: widget.onRetry,
+          icon: const Icon(Icons.replay),
+          label: const Text('Otra vez'),
+        ),
+      ],
+    );
+  }
+
+  Widget _portrait(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(_face, style: const TextStyle(fontSize: 72)),
+        const SizedBox(height: 4),
+        Text(
+          _headline,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Stars(count: _stars, anim: _anim),
+        const SizedBox(height: 16),
+        ScoreRing(score: widget.score, size: 150),
+        if (widget.details.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          ...widget.details,
+        ],
+        const SizedBox(height: 28),
+        _buttons(),
+      ],
+    );
+  }
+
+  Widget _landscape(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_face, style: const TextStyle(fontSize: 52)),
+            Text(
+              _headline,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _Stars(count: _stars, anim: _anim),
+          ],
+        ),
+        const SizedBox(width: 28),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ScoreRing(score: widget.score, size: 104),
+            const SizedBox(height: 16),
+            _buttons(),
+          ],
         ),
       ],
     );

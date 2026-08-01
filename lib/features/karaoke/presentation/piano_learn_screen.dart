@@ -126,6 +126,8 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
                   )
                 else
                   _difficultyMenu(),
+                // "Terminar" arriba, para que no tape las teclas.
+                if (_c.running) ...[const SizedBox(width: 6), _stopButton()],
               ],
             ),
             if (_c.playAlong && !_c.running)
@@ -134,25 +136,19 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
                 child: _physicalToggle('piano'),
               ),
             const Spacer(),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: _c.running
-                  ? FloatingActionButton.extended(
-                      heroTag: 'stop',
-                      backgroundColor: Colors.white24,
-                      onPressed: _c.stop,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Terminar'),
-                    )
-                  : FloatingActionButton.extended(
-                      heroTag: 'play',
-                      backgroundColor: AppColors.pink,
-                      foregroundColor: Colors.white,
-                      onPressed: _c.start,
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Empezar a tocar'),
-                    ),
-            ),
+            // Solo "Empezar" abajo (antes de tocar, cuando no molesta).
+            if (!_c.running)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: FloatingActionButton.extended(
+                  heroTag: 'play',
+                  backgroundColor: AppColors.pink,
+                  foregroundColor: Colors.white,
+                  onPressed: _c.start,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Empezar a tocar'),
+                ),
+              ),
             if (_c.error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -163,6 +159,20 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _stopButton() {
+    return FilledButton.icon(
+      onPressed: _c.stop,
+      icon: const Icon(Icons.stop, size: 18),
+      label: const Text('Terminar'),
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.white24,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }
