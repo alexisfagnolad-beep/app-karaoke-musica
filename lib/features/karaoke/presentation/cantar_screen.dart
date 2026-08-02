@@ -64,6 +64,7 @@ class CantarScreen extends StatelessWidget {
                         title: s.title,
                         notes: s.notes,
                         duration: s.duration,
+                        lyrics: s.lyrics,
                       ),
                     ),
                   ),

@@ -172,6 +172,13 @@ int _dindex(int midi) {
   return (white ~/ 12) * 7 + _degree[white % 12]!;
 }
 
+/// Nombre lúdico de la nota (Do-Re-Mi), con ♯ para las negras.
+String _noteName(int midi) {
+  final pc = midi % 12;
+  if (_whitePc.contains(pc)) return _solfege[pc]!;
+  return '${_solfege[(pc - 1) % 12]!}♯';
+}
+
 class _LearnPainter extends CustomPainter {
   _LearnPainter(this.c, Listenable repaint) : super(repaint: repaint);
 
@@ -270,8 +277,17 @@ class _LearnPainter extends CustomPainter {
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
         );
       }
-      if (!_whitePc.contains(n.midi % 12)) {
-        _text(canvas, '♯', Offset(x0 - 10, y), Colors.white, 13);
+      // Nombre de la nota (Do-Re-Mi) sobre la barra, si entra.
+      if ((x1 - x0) > 24) {
+        _text(
+          canvas,
+          _noteName(n.midi),
+          Offset((x0 + x1) / 2, y),
+          Colors.white,
+          (noteH * 0.7).clamp(9.0, 14.0),
+        );
+      } else if (!_whitePc.contains(n.midi % 12)) {
+        _text(canvas, '♯', Offset(x0 - 10, y), Colors.white, 12);
       }
     }
 

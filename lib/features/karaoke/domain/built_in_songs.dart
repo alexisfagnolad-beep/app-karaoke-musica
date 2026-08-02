@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'lyrics.dart';
 import 'melody.dart';
 import 'rhythm.dart';
 
@@ -10,12 +11,45 @@ class BuiltInSong {
   final List<MelodyNote> notes;
   final double duration;
 
+  /// Letra sincronizada (una sílaba por nota), para cantar. Puede ser null.
+  final Lyrics? lyrics;
+
   const BuiltInSong({
     required this.title,
     required this.icon,
     required this.notes,
     required this.duration,
+    this.lyrics,
   });
+}
+
+/// Arma una letra sincronizada asignando una sílaba a cada nota (en orden) y
+/// agrupándolas en frases de [perLine] palabras. Robusta a diferencias de
+/// largo (usa el mínimo).
+Lyrics? _lyrics(List<MelodyNote> notes, List<String> syl, {int perLine = 6}) {
+  if (syl.isEmpty) return null;
+  final words = <LyricWord>[];
+  final n = notes.length < syl.length ? notes.length : syl.length;
+  for (var i = 0; i < n; i++) {
+    words.add(
+      LyricWord(start: notes[i].startT, end: notes[i].endT, text: syl[i]),
+    );
+  }
+  if (words.isEmpty) return null;
+  final lines = <LyricLine>[];
+  for (var i = 0; i < words.length; i += perLine) {
+    final end = (i + perLine) < words.length ? i + perLine : words.length;
+    final chunk = words.sublist(i, end);
+    lines.add(
+      LyricLine(
+        start: chunk.first.start,
+        end: chunk.last.end,
+        text: chunk.map((w) => w.text).join(' '),
+        words: chunk,
+      ),
+    );
+  }
+  return Lyrics(lines: lines);
 }
 
 /// Un patrón rítmico prediseñado para practicar batería.
@@ -71,14 +105,16 @@ BuiltInSong _song(
   String title,
   IconData icon,
   List<List<num>> seq,
-  double bpm,
-) {
+  double bpm, {
+  List<String> syllables = const [],
+}) {
   final notes = _mel(seq, bpm);
   return BuiltInSong(
     title: title,
     icon: icon,
     notes: notes,
     duration: _dur(notes),
+    lyrics: _lyrics(notes, syllables),
   );
 }
 
@@ -86,14 +122,16 @@ BuiltInSong _songSeq(
   String title,
   IconData icon,
   List<List<num>> seq,
-  double bpm,
-) {
+  double bpm, {
+  List<String> syllables = const [],
+}) {
   final notes = _melSeq(seq, bpm);
   return BuiltInSong(
     title: title,
     icon: icon,
     notes: notes,
     duration: _dur(notes),
+    lyrics: _lyrics(notes, syllables),
   );
 }
 
@@ -115,7 +153,10 @@ final List<BuiltInSong> builtInSongs = [
     [64, 12, 1.5],
     [62, 13.5, 0.5],
     [62, 14, 2],
-  ], 78),
+  ], 78, syllables: const [
+    'Es', 'cu', 'cha', 'her', 'ma', 'no', 'la', 'can',
+    'ción', 'de', 'la', 'a', 'le', 'grí', 'a',
+  ]),
   _song('Estrellita (Twinkle)', Icons.star, const [
     [60, 0, 1],
     [60, 1, 1],
@@ -131,7 +172,10 @@ final List<BuiltInSong> builtInSongs = [
     [62, 12, 1],
     [62, 13, 1],
     [60, 14, 2],
-  ], 76),
+  ], 76, syllables: const [
+    'Es', 'tre', 'lli', 'ta', 'dón', 'de', 'es', 'tás',
+    'quie', 'ro', 'ver', 'te', 'bri', 'llar',
+  ]),
   _song('Feliz Cumpleaños', Icons.cake, const [
     [67, 0, 0.75],
     [67, 0.75, 0.25],
@@ -158,7 +202,12 @@ final List<BuiltInSong> builtInSongs = [
     [72, 21, 1],
     [74, 22, 1],
     [72, 23, 2],
-  ], 84),
+  ], 84, syllables: const [
+    'Cum', 'ple', 'a', 'ños', 'fe', 'liz',
+    'Cum', 'ple', 'a', 'ños', 'fe', 'liz',
+    'Cum', 'ple', 'a', 'ños', 'que', 'ri', 'do',
+    'Cum', 'ple', 'a', 'ños', 'fe', 'liz',
+  ]),
   // Fray Santiago / Martinillo (canon, dominio público). [midi, duración].
   _songSeq('Fray Santiago', Icons.notifications, const [
     [60, 1], [62, 1], [64, 1], [60, 1],
@@ -169,14 +218,25 @@ final List<BuiltInSong> builtInSongs = [
     [67, .5], [69, .5], [67, .5], [65, .5], [64, 1], [60, 1],
     [60, 1], [55, 1], [60, 2],
     [60, 1], [55, 1], [60, 2],
-  ], 74),
+  ], 74, syllables: const [
+    'Fray', 'San', 'tia', 'go', 'Fray', 'San', 'tia', 'go',
+    'Duer', 'mes', 'tú', 'Duer', 'mes', 'tú',
+    'Sue', 'nan', 'las', 'cam', 'pa', 'nas',
+    'Sue', 'nan', 'las', 'cam', 'pa', 'nas',
+    'Din', 'don', 'dan', 'Din', 'don', 'dan',
+  ]),
   // "Mari tenía un corderito" (Mary had a little lamb).
   _songSeq('El corderito', Icons.pets, const [
     [64, 1], [62, 1], [60, 1], [62, 1], [64, 1], [64, 1], [64, 2],
     [62, 1], [62, 1], [62, 2], [64, 1], [67, 1], [67, 2],
     [64, 1], [62, 1], [60, 1], [62, 1], [64, 1], [64, 1], [64, 1],
     [64, 1], [62, 1], [62, 1], [64, 1], [62, 1], [60, 2],
-  ], 88),
+  ], 88, syllables: const [
+    'Ma', 'rí', 'a', 'tie', 'ne un', 'cor', 'de',
+    'ri', 'to', 'blan', 'co', 'muy', 'chi',
+    'qui', 'to', 'que a', 'to', 'dos', 'ha', 'ce',
+    'reír', 'ju', 'gar', 'y', 'sal', 'tar',
+  ]),
   // "Que llueva" (versión sencilla de terceras, para cantar fácil).
   _songSeq('Que llueva', Icons.water_drop, const [
     [67, 1], [64, 1], [67, 1], [64, 1],
@@ -184,7 +244,11 @@ final List<BuiltInSong> builtInSongs = [
     [67, 1], [64, 1], [67, 1], [64, 1],
     [69, 1], [67, 1], [64, 2],
     [60, 1], [62, 1], [64, 1], [65, 1], [67, 2],
-  ], 82),
+  ], 82, syllables: const [
+    'Que', 'llue', 'va', 'que', 'llue', 'va', 'la', 'Vir',
+    'gen', 'de', 'la', 'cue', 'va', 'los', 'pa',
+    'ja', 'ri', 'tos', 'can', 'tan',
+  ]),
 ];
 
 Rhythm _pattern(

@@ -36,12 +36,12 @@ class KaraokeScreen extends StatefulWidget {
     required this.title,
     required List<MelodyNote> notes,
     required double duration,
+    this.lyrics,
   }) : builtInNotes = notes,
        builtInDuration = duration,
        instrumentalPath = null,
        melody = null,
        rhythm = null,
-       lyrics = null,
        freeMode = false,
        pianoView = false;
 
@@ -103,6 +103,26 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         widget.title,
         colors: const [AppColors.pink, AppColors.purple],
         actions: [
+          // Silenciar la melodía guía para cantar y que el micrófono te
+          // escuche a vos (canciones prediseñadas).
+          if (widget.builtInNotes != null)
+            IconButton(
+              tooltip: KaraokeController.builtInSoundEnabled
+                  ? 'Silenciar melodía (cantá vos)'
+                  : 'Escuchar la melodía',
+              icon: Icon(
+                KaraokeController.builtInSoundEnabled
+                    ? Icons.volume_up
+                    : Icons.volume_off,
+              ),
+              onPressed: () {
+                setState(() {
+                  KaraokeController.builtInSoundEnabled =
+                      !KaraokeController.builtInSoundEnabled;
+                });
+                _c.applySound();
+              },
+            ),
           TempoButton(controller: _c),
           if (widget.melody != null)
             IconButton(
