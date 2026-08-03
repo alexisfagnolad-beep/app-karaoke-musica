@@ -6,6 +6,7 @@ import '../../../shared/ui/celebration.dart';
 import '../data/karaoke_controller.dart';
 import '../domain/rhythm.dart';
 import 'drum_learn_view.dart';
+import 'karaoke_backdrop.dart';
 import 'tempo_button.dart';
 
 /// Pantalla de batería estilo Guitar Hero: horizontal, a pantalla completa,
@@ -74,6 +75,8 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
           return Stack(
             fit: StackFit.expand,
             children: [
+              const KaraokeBackdrop(),
+              Container(color: Colors.black.withValues(alpha: 0.45)),
               DrumLearnView(controller: _c, pieces: _pieces),
               _overlay(),
             ],

@@ -171,10 +171,7 @@ class _DrumLearnPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final hits = c.rhythmRef?.hits ?? const [];
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = const Color(0xFF0F0E16),
-    );
+    // Fondo transparente: el degradé lindo va detrás (en la pantalla).
 
     final hitLine = size.height * 0.56;
     final pps = hitLine / lookahead;

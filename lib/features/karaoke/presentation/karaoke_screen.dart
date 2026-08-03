@@ -267,7 +267,7 @@ class _KaraokeScreenState extends State<KaraokeScreen> {
         children: [
           const KaraokeBackdrop(),
           Container(color: Colors.black.withValues(alpha: 0.30)),
-          PitchRollView(controller: _c),
+          PitchRollView(controller: _c, lyrics: widget.lyrics),
         ],
       ),
     );

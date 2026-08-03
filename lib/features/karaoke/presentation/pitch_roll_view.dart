@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../data/karaoke_controller.dart';
+import '../domain/lyrics.dart';
 import '../domain/scoring.dart';
 import 'piano_roll_view.dart' show kNoteColors;
 
@@ -28,9 +29,12 @@ String _noteName(int midi) {
 /// ilumina; si desafinás, tu voz aparece como una barrita más tenue arriba
 /// (agudo) o abajo (grave) de la nota objetivo.
 class PitchRollView extends StatefulWidget {
-  const PitchRollView({super.key, required this.controller});
+  const PitchRollView({super.key, required this.controller, this.lyrics});
 
   final KaraokeController controller;
+
+  /// Letra sincronizada, para mostrar la sílaba pegada a cada barra.
+  final Lyrics? lyrics;
 
   @override
   State<PitchRollView> createState() => _PitchRollViewState();
@@ -62,6 +66,7 @@ class _PitchRollViewState extends State<PitchRollView>
             painter: _PitchRollPainter(
               controller: widget.controller,
               repaint: _ticker,
+              lyrics: widget.lyrics,
               barBase: scheme.onSurface.withValues(alpha: 0.12),
               lit: const Color(0xFFE0457B),
               glow: const Color(0xFFFF7FB0),
@@ -117,6 +122,7 @@ class _PitchRollPainter extends CustomPainter {
   _PitchRollPainter({
     required this.controller,
     required Listenable repaint,
+    required this.lyrics,
     required this.barBase,
     required this.lit,
     required this.glow,
@@ -126,6 +132,7 @@ class _PitchRollPainter extends CustomPainter {
   }) : super(repaint: repaint);
 
   final KaraokeController controller;
+  final Lyrics? lyrics;
   final Color barBase;
   final Color lit;
   final Color glow;
@@ -204,13 +211,19 @@ class _PitchRollPainter extends CustomPainter {
         );
       }
 
-      // Nombre de la nota (Do-Re-Mi) ARRIBA de la barra, grande y con el color
-      // del teclado, moviéndose junto con la barra.
-      final fs = (barH * 1.15).clamp(15.0, 24.0);
+      final cx = (x0 + x1) / 2;
+      // Letra (sílaba) PEGADA arriba de la barra, en amarillo brillante, para no
+      // tener que separar la vista de las barras.
+      final syl = _syllableAt(n.startT);
+      if (syl != null && syl.isNotEmpty) {
+        _label(canvas, syl, Offset(cx, y - barH / 2 - 20), _lyricColor, 19);
+      }
+      // Nombre de la nota (Do-Re-Mi) DEBAJO de la barra, con el color del teclado.
+      final fs = (barH * 1.0).clamp(13.0, 20.0);
       _label(
         canvas,
         _noteName(n.midi),
-        Offset((x0 + x1) / 2, y - barH / 2 - fs * 0.7),
+        Offset(cx, y + barH / 2 + fs * 0.7),
         kNoteColors[n.midi % 12],
         fs,
       );
@@ -249,6 +262,21 @@ class _PitchRollPainter extends CustomPainter {
         Paint()..color = color,
       );
     }
+  }
+
+  static const Color _lyricColor = Color(0xFFFFD24A);
+
+  /// Sílaba de la letra que corresponde al instante [t] (arranque de la nota).
+  String? _syllableAt(double t) {
+    final ly = lyrics;
+    if (ly == null) return null;
+    for (final line in ly.lines) {
+      if (t < line.start || t > line.end) continue;
+      for (final w in line.words) {
+        if (t >= w.start && t < w.end) return w.text;
+      }
+    }
+    return null;
   }
 
   void _label(

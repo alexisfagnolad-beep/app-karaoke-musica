@@ -677,8 +677,11 @@ class KaraokeController extends ChangeNotifier {
       return;
     }
 
+    // Al cantar prediseñado (para chicos) somos MÁS amables: con acercarse a la
+    // nota (aunque no sea exacta) ya cuenta e ilumina la barra.
+    final tol = builtInSing ? 4.0 : onPitchTolerance;
     final diff = octaveFoldedDiff(midi, notes[idx].midi);
-    if (diff.abs() <= onPitchTolerance) {
+    if (diff.abs() <= tol) {
       _direction = 0;
       // Vibración corta al "enganchar" una barra nueva afinado.
       if (effectsEnabled && idx != _lastHapticNote) {
@@ -688,7 +691,7 @@ class KaraokeController extends ChangeNotifier {
       // Marca el tramo cantado afinado desde donde empezamos (aunque tarde).
       _cover(idx, t, dt);
       // Sumar puntos: más cerca de la nota y más sostenido = más puntaje.
-      final closeness = (1.0 - diff.abs() / onPitchTolerance).clamp(0.0, 1.0);
+      final closeness = (1.0 - diff.abs() / tol).clamp(0.0, 1.0);
       _liveScore += dt * (60 + 40 * closeness);
     } else {
       _direction = diff > 0 ? 1 : -1; // agudo (arriba) / grave (abajo).
