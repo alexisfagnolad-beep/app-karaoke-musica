@@ -25,6 +25,7 @@ class DrumLearnScreen extends StatefulWidget {
     required this.title,
     required this.rhythm,
     required double duration,
+    this.builtInPieces,
   }) : instrumentalPath = null,
        builtInDuration = duration;
 
@@ -32,6 +33,9 @@ class DrumLearnScreen extends StatefulWidget {
   final String title;
   final Rhythm rhythm;
   final double? builtInDuration;
+
+  /// Piezas que arma este patrón (toms/platillos según corresponda).
+  final Set<String>? builtInPieces;
 
   @override
   State<DrumLearnScreen> createState() => _DrumLearnScreenState();
@@ -44,6 +48,11 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.builtInPieces != null) {
+      _pieces
+        ..clear()
+        ..addAll(widget.builtInPieces!);
+    }
     if (widget.builtInDuration != null) {
       _c.loadBuiltInRhythm(widget.rhythm, widget.builtInDuration!);
     } else {

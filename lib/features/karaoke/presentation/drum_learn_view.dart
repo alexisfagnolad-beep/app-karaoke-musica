@@ -50,6 +50,16 @@ const List<DrumPieceDef> kDrumPieces = [
 /// Piezas por defecto (las 3 que la app distingue por sonido).
 const Set<String> kDefaultPieces = {'kick', 'snare', 'hihat'};
 
+/// Pieza canónica de cada banda (0 bombo, 1 redoblante, 2 hi-hat).
+String _canonId(int band) => const ['kick', 'snare', 'hihat'][band.clamp(0, 2)];
+
+DrumPieceDef? _pieceDef(String id) {
+  for (final d in kDrumPieces) {
+    if (d.id == id) return d;
+  }
+  return null;
+}
+
 /// Vista de batería estilo Guitar Hero (horizontal): notas cayendo por
 /// carriles que terminan en una batería dibujada abajo. Cuando la nota llega,
 /// el chico golpea esa parte real; la parte se ilumina en la app.
@@ -86,9 +96,10 @@ class _DrumLearnViewState extends State<DrumLearnView>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, cons) {
+        final size = Size(cons.maxWidth, cons.maxHeight);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => _onTap(d.localPosition.dx, cons.maxWidth),
+          onTapDown: (d) => _onTap(d.localPosition, size),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -108,11 +119,23 @@ class _DrumLearnViewState extends State<DrumLearnView>
     );
   }
 
-  /// Tocar una pieza en pantalla: izquierda = redoblante, centro = bombo,
-  /// derecha = hi-hat.
-  void _onTap(double dx, double width) {
-    final band = dx < width * 0.39 ? 1 : (dx < width * 0.61 ? 0 : 2);
-    widget.controller.tapDrum(band);
+  /// Tocar la pieza dibujada MÁS CERCANA al toque: suena su propio sonido.
+  void _onTap(Offset p, Size size) {
+    String? bestId;
+    var bestBand = 0;
+    var best = double.infinity;
+    for (final def in kDrumPieces) {
+      if (!widget.pieces.contains(def.id)) continue;
+      final cx = def.x * size.width;
+      final cy = def.y * size.height;
+      final d = (cx - p.dx) * (cx - p.dx) + (cy - p.dy) * (cy - p.dy);
+      if (d < best) {
+        best = d;
+        bestId = def.id;
+        bestBand = def.band;
+      }
+    }
+    if (bestId != null) widget.controller.tapPiece(bestId, bestBand);
   }
 
   Widget _buildCountIn() {
@@ -177,7 +200,7 @@ class _DrumLearnPainter extends CustomPainter {
     final pps = hitLine / lookahead;
     final pos = c.clock;
 
-    // Posición horizontal de cada carril (redoblante izq, bombo centro, hi der).
+    // Carril por banda (fallback si la pieza no está dibujada).
     final laneX = <int, double>{
       1: size.width * 0.28,
       0: size.width * 0.5,
@@ -186,28 +209,21 @@ class _DrumLearnPainter extends CustomPainter {
 
     double yForTime(double t) => hitLine - (t - pos) * pps;
 
-    // Carriles (guías).
-    final laneGuide = Paint()..color = Colors.white.withValues(alpha: 0.06);
-    for (final x in laneX.values) {
-      canvas.drawLine(Offset(x, 0), Offset(x, hitLine), laneGuide);
-    }
-
-    // Encendido de cada pieza: SOLO si acertaste (golpe virtual o físico) cerca
-    // del objetivo. Si nadie toca, nada se ilumina (ni el kit ni la nota).
-    final lit = <bool>[
-      for (var i = 0; i < 3; i++)
-        c.lastBandHitT[i] >= 0 && (pos - c.lastBandHitT[i]) < 0.22,
-    ];
-
-    // Notas cayendo (brillan solo si esa pieza fue acertada al pasar).
+    // Notas cayendo: cada una cae hacia SU pieza (tom1, crash, …) y brilla solo
+    // si esa pieza fue acertada al pasar por la línea.
     for (final h in hits) {
       final y = yForTime(h.t);
       if (y < -30 || y > hitLine + 4) continue;
       final band = h.band.clamp(0, 2);
-      final x = laneX[band]!;
+      final pieceId = h.piece ?? _canonId(band);
+      final def = _pieceDef(pieceId);
+      final x = (def != null && pieces.contains(pieceId))
+          ? def.x * size.width
+          : laneX[band]!;
       final r = (size.width * 0.022).clamp(10.0, 26.0);
       final cy = y.clamp(0.0, hitLine);
-      final glow = lit[band] && (h.t - pos).abs() < 0.25;
+      final ht = c.lastPieceHitT[pieceId] ?? -1e9;
+      final glow = (pos - ht) < 0.25 && (h.t - pos).abs() < 0.25;
       if (glow) {
         canvas.drawCircle(
           Offset(x, cy),
@@ -254,7 +270,7 @@ class _DrumLearnPainter extends CustomPainter {
     );
 
     // --- Batería dibujada abajo ---
-    _drawKit(canvas, size, hitLine, lit);
+    _drawKit(canvas, size, pos);
 
     // Indicador de micrófono (nivel), para ver que está escuchando.
     if (c.micPractice) _micMeter(canvas, size, c.micLevel, c.listening);
@@ -292,16 +308,16 @@ class _DrumLearnPainter extends CustomPainter {
     tp.paint(canvas, Offset(size.width * 0.5 - tp.width / 2, y - 18));
   }
 
-  void _drawKit(Canvas canvas, Size size, double top, List<bool> lit) {
+  void _drawKit(Canvas canvas, Size size, double pos) {
     final w = size.width;
     final h = size.height;
-    // Dibuja las piezas elegidas (en el orden del catálogo: platillos y toms
-    // atrás, bombo/redoblante adelante). Cada pieza se ilumina si su banda fue
-    // acertada.
+    // Dibuja las piezas elegidas. Cada pieza se ilumina SOLO si esa pieza fue
+    // acertada recién (por su propio golpe), no todas las de la misma banda.
     for (final def in kDrumPieces) {
       if (!pieces.contains(def.id)) continue;
       final center = Offset(w * def.x, h * def.y);
-      final on = lit[def.band.clamp(0, 2)];
+      final ht = c.lastPieceHitT[def.id] ?? -1e9;
+      final on = (pos - ht) < 0.22;
       final color = colors[def.band.clamp(0, 2)];
       if (def.cymbal) {
         _cymbal(canvas, center, w * def.size, color, on);

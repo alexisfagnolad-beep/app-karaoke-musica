@@ -2,11 +2,15 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 /// Un golpe de la referencia: instante [t] (seg) y [band] (0 = grave/bombo,
-/// 1 = medio/redoblante, 2 = agudo/hi-hat) para la vista didáctica.
+/// 1 = medio/redoblante, 2 = agudo/hi-hat) para la vista didáctica. [piece]
+/// (opcional) apunta a una pieza específica de la batería (tom1, crash, …) para
+/// que se ilumine y suene distinta; si es null, se usa la pieza canónica de la
+/// banda.
 class RhythmHit {
   final double t;
   final int band;
-  const RhythmHit(this.t, this.band);
+  final String? piece;
+  const RhythmHit(this.t, this.band, {this.piece});
 }
 
 /// Referencia rítmica generada por la PC (`rhythm.json`): los instantes en que

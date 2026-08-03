@@ -26,6 +26,7 @@ class InstrumentAudio {
 
   final Map<int, String> _notePaths = {};
   final Map<int, String> _drumPaths = {};
+  final Map<String, String> _piecePaths = {};
   Directory? _dir;
 
   Future<Directory> _tmp() async => _dir ??= await getTemporaryDirectory();
@@ -130,6 +131,28 @@ class InstrumentAudio {
   Future<void> playDrum(int band) async {
     final path = _drumPaths[band.clamp(0, 2)];
     if (path == null) return;
+    await _playOneShot(path);
+  }
+
+  /// Toca el sonido propio de una pieza (tom1, crash, ride, …).
+  Future<void> playPiece(String id) async {
+    var path = _piecePaths[id];
+    if (path == null) {
+      try {
+        final dir = await _tmp();
+        final f = File('${dir.path}/tone_p$id.wav');
+        if (!await f.exists()) {
+          await f.writeAsBytes(ToneSynth.drumPieceTone(id));
+        }
+        path = _piecePaths[id] = f.path;
+      } catch (_) {
+        return;
+      }
+    }
+    await _playOneShot(path);
+  }
+
+  Future<void> _playOneShot(String path) async {
     _ensureDrums();
     final p = _drumPool[_drumNext];
     _drumNext = (_drumNext + 1) % _drumPoolSize;

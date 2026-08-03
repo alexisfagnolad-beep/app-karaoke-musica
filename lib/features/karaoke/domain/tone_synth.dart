@@ -117,6 +117,101 @@ class ToneSynth {
     return _wav(buf);
   }
 
+  /// Sonido propio de cada PIEZA (para que tom1/tom2, crash/ride, etc. suenen
+  /// distinto).
+  static Uint8List drumPieceTone(String id) {
+    final buf = Float64List((0.6 * sr).ceil());
+    switch (id) {
+      case 'kick':
+        _addKick(buf, 0);
+        break;
+      case 'leguero':
+        _addTom(buf, 0, 70); // bombo legüero: muy grave
+        break;
+      case 'snare':
+        _addSnare(buf, 0, 3);
+        break;
+      case 'chancha':
+        _addSnare(buf, 0, 7);
+        break;
+      case 'tom1':
+        _addTom(buf, 0, 200);
+        break;
+      case 'tom2':
+        _addTom(buf, 0, 150);
+        break;
+      case 'floor':
+        _addTom(buf, 0, 100);
+        break;
+      case 'hihat':
+        _addHat(buf, 0, 9);
+        break;
+      case 'crash':
+        _addCrash(buf, 0, 11);
+        break;
+      case 'ride':
+        _addRide(buf, 0, 13);
+        break;
+      default:
+        _addSnare(buf, 0, 1);
+    }
+    _normalize(buf, 0.95);
+    return _wav(buf);
+  }
+
+  static void _addTom(Float64List buf, double start, double f0) {
+    final s0 = (start * sr).floor();
+    final len = (0.4 * sr).round();
+    for (var i = 0; i < len; i++) {
+      final idx = s0 + i;
+      if (idx < 0 || idx >= buf.length) continue;
+      final t = i / sr;
+      final f = f0 * (1 + 0.3 * math.exp(-12 * t)); // leve caída de tono
+      final env = math.exp(-7 * t);
+      buf[idx] += math.sin(2 * math.pi * f * t) * env * 0.8;
+    }
+  }
+
+  static void _addCrash(Float64List buf, double start, int seed) {
+    final s0 = (start * sr).floor();
+    final len = (0.55 * sr).round();
+    var rnd = seed & 0x7fffffff;
+    var prev = 0.0;
+    for (var i = 0; i < len; i++) {
+      final idx = s0 + i;
+      if (idx < 0 || idx >= buf.length) continue;
+      final t = i / sr;
+      rnd = (rnd * 1103515245 + 12345) & 0x7fffffff;
+      final noise = (rnd / 0x3fffffff) - 1.0;
+      final hp = noise - prev;
+      prev = noise;
+      final env = math.exp(-6 * t); // decae largo (platillo abierto)
+      buf[idx] += hp * env * 0.5;
+    }
+  }
+
+  static void _addRide(Float64List buf, double start, int seed) {
+    final s0 = (start * sr).floor();
+    final len = (0.5 * sr).round();
+    var rnd = seed & 0x7fffffff;
+    var prev = 0.0;
+    for (var i = 0; i < len; i++) {
+      final idx = s0 + i;
+      if (idx < 0 || idx >= buf.length) continue;
+      final t = i / sr;
+      rnd = (rnd * 1103515245 + 12345) & 0x7fffffff;
+      final noise = (rnd / 0x3fffffff) - 1.0;
+      final hp = noise - prev;
+      prev = noise;
+      final ping =
+          (math.sin(2 * math.pi * 520 * t) +
+              0.6 * math.sin(2 * math.pi * 790 * t)) *
+          math.exp(-9 * t);
+      final env = math.exp(-7 * t);
+      buf[idx] += (hp * 0.25 + ping * 0.5) * env;
+    }
+  }
+
   // --- Síntesis ---
 
   static void _addTone(

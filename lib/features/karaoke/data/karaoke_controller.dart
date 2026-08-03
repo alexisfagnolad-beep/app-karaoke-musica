@@ -158,6 +158,13 @@ class KaraokeController extends ChangeNotifier {
   /// Momento del último golpe correcto por pieza de batería (para el brillo).
   final List<double> lastBandHitT = [-1, -1, -1];
 
+  /// Momento del último golpe por PIEZA (id del catálogo), para iluminar la
+  /// pieza exacta (tom1, crash, …) y no todas las de la misma banda.
+  final Map<String, double> lastPieceHitT = {};
+
+  /// Pieza canónica de cada banda (cuando un golpe no apunta a una específica).
+  static const List<String> _canonPiece = ['kick', 'snare', 'hihat'];
+
   /// Momento del último acierto (para el cartel rápido de "¡Bien!").
   double lastHitT = -1;
 
@@ -246,13 +253,13 @@ class KaraokeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Toca una pieza de la batería en pantalla (suena; si cae justo sobre el
-  /// golpe guía, cuenta como acierto y brilla).
-  void tapDrum(int band) {
-    _instr?.playDrum(band);
+  /// Toca una PIEZA de la batería en pantalla: suena su propio sonido y, si cae
+  /// justo sobre el golpe guía, cuenta como acierto e ilumina esa pieza.
+  void tapPiece(String pieceId, int band) {
+    _instr?.playPiece(pieceId);
     if (effectsEnabled) HapticFeedback.lightImpact();
     tappedBand = band;
-    _registerRhythmHit(clock, band);
+    _registerRhythmHit(clock, strictDrums ? band : null, pieceId);
     notifyListeners();
     Future.delayed(const Duration(milliseconds: 160), () {
       if (_disposed) return;
@@ -331,8 +338,9 @@ class KaraokeController extends ChangeNotifier {
   }
 
   /// Un golpe (virtual o físico) cerca de un objetivo cuenta como acierto e
-  /// ilumina la pieza correspondiente.
-  void _registerRhythmHit(double t, [int? band]) {
+  /// ilumina la pieza correspondiente. [tappedPiece] es la pieza que se tocó en
+  /// pantalla (si la hay); si no, se ilumina la pieza del golpe guía.
+  void _registerRhythmHit(double t, [int? band, String? tappedPiece]) {
     final r = _rhythm;
     if (r == null) return;
     var best = -1;
@@ -348,7 +356,10 @@ class KaraokeController extends ChangeNotifier {
       }
     }
     if (best < 0) return;
-    final b = r.hits[best].band.clamp(0, 2);
+    final h = r.hits[best];
+    final b = h.band.clamp(0, 2);
+    final piece = tappedPiece ?? h.piece ?? _canonPiece[b];
+    lastPieceHitT[piece] = clock;
     lastBandHitT[b] = clock;
     lastHitT = clock;
     if (_hitOnsets.add(best)) _goodHits++;
@@ -511,6 +522,7 @@ class KaraokeController extends ChangeNotifier {
     pressedMidis.clear();
     tappedBand = -1;
     lastBandHitT[0] = lastBandHitT[1] = lastBandHitT[2] = -1;
+    lastPieceHitT.clear();
     lastHitT = -1;
     micLevel = 0;
     _goodHits = 0;

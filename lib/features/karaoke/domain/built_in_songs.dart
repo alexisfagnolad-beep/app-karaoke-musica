@@ -59,13 +59,32 @@ class BuiltInPattern {
   final Rhythm rhythm;
   final double duration;
 
+  /// Piezas que usa el patrón (para armar la batería dibujada). Por defecto las
+  /// 3 básicas; los patrones que usan toms/platillos traen su propio set.
+  final Set<String> pieces;
+
   const BuiltInPattern({
     required this.title,
     required this.icon,
     required this.rhythm,
     required this.duration,
+    this.pieces = const {'kick', 'snare', 'hihat'},
   });
 }
+
+/// Banda (grave/medio/agudo) de cada pieza, para los patrones por pieza.
+const Map<String, int> _pieceBand = {
+  'kick': 0,
+  'leguero': 0,
+  'snare': 1,
+  'chancha': 1,
+  'tom1': 1,
+  'tom2': 1,
+  'floor': 1,
+  'hihat': 2,
+  'crash': 2,
+  'ride': 2,
+};
 
 // [midi, startBeat, durBeats] -> notas (con un compás de entrada para la cuenta).
 List<MelodyNote> _mel(List<List<num>> seq, double bpm, {double lead = 4}) {
@@ -286,6 +305,38 @@ BuiltInPattern _pat(
   );
 }
 
+// Patrón por PIEZA: cada golpe apunta a una pieza específica (tom1, crash, …)
+// para que suene e ilumine distinto. perBar: [beatDentroDelCompás, pieceId].
+BuiltInPattern _patP(
+  String title,
+  IconData icon,
+  double bpm,
+  int bars,
+  List<List<Object>> perBar,
+) {
+  final spb = 60.0 / bpm;
+  final hits = <RhythmHit>[];
+  final used = <String>{};
+  for (var bar = 0; bar < bars; bar++) {
+    final base = bar * 4.0 + 4;
+    for (final e in perBar) {
+      final beat = (e[0] as num).toDouble();
+      final id = e[1] as String;
+      used.add(id);
+      hits.add(RhythmHit((base + beat) * spb, _pieceBand[id] ?? 1, piece: id));
+    }
+  }
+  hits.sort((a, b) => a.t.compareTo(b.t));
+  final r = Rhythm(onsets: hits.map((h) => h.t).toList(), hits: hits);
+  return BuiltInPattern(
+    title: title,
+    icon: icon,
+    rhythm: r,
+    duration: (r.onsets.isEmpty ? 0 : r.onsets.last) + 1.0,
+    pieces: used,
+  );
+}
+
 // Patrón en compás de 3 tiempos (3/4), para el folclore (chacarera, gato,
 // zamba). Un compás de entrada de 3 tiempos para la cuenta.
 BuiltInPattern _patFolk(
@@ -343,5 +394,18 @@ final List<BuiltInPattern> builtInPatterns = [
   _patFolk('Zamba', Icons.favorite, 72, 4, const [
     [0, 0], [1.5, 0], // bombo
     [1, 1], [2, 1], [2.5, 1], // redoblante
+  ]),
+  // --- Patrones por pieza: los toms y platillos suenan e iluminan distinto ---
+  _patP('Redoble con toms', Icons.graphic_eq, 82, 2, const [
+    [0, 'snare'], [0.5, 'snare'],
+    [1, 'tom1'], [1.5, 'tom1'],
+    [2, 'tom2'], [2.5, 'tom2'],
+    [3, 'floor'], [3.5, 'floor'],
+  ]),
+  _patP('Rock con platillos', Icons.album, 88, 4, const [
+    [0, 'crash'], [0, 'kick'],
+    [0.5, 'hihat'], [1, 'snare'],
+    [1.5, 'ride'], [2, 'kick'],
+    [2.5, 'ride'], [3, 'snare'], [3.5, 'ride'],
   ]),
 ];

@@ -69,6 +69,7 @@ class BuiltInScreen extends StatelessWidget {
                       title: p.title,
                       rhythm: p.rhythm,
                       duration: p.duration,
+                      builtInPieces: p.pieces,
                     ),
                   ),
                 ),
