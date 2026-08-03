@@ -28,20 +28,23 @@ class DrumPieceDef {
   });
 }
 
-/// Catálogo de piezas disponibles para armar la batería.
+/// Catálogo de piezas disponibles para armar la batería. Distribución tipo
+/// batería real (vista de frente): redoblante a la izquierda, hi-hat, toms
+/// arriba con el crash entre medio, bombo grande al centro, ride a la derecha y
+/// el tom de piso / chancha a la derecha del todo.
 const List<DrumPieceDef> kDrumPieces = [
-  DrumPieceDef('crash', 'Platillo (crash)', 2, x: 0.17, y: 0.66, size: 0.10,
+  DrumPieceDef('crash', 'Platillo (crash)', 2, x: 0.50, y: 0.61, size: 0.10,
       cymbal: true),
-  DrumPieceDef('ride', 'Ride', 2, x: 0.84, y: 0.64, size: 0.11, cymbal: true),
-  DrumPieceDef('hihat', 'Hi-hat', 2, x: 0.69, y: 0.75, size: 0.095,
+  DrumPieceDef('ride', 'Ride', 2, x: 0.80, y: 0.64, size: 0.11, cymbal: true),
+  DrumPieceDef('hihat', 'Hi-hat', 2, x: 0.28, y: 0.68, size: 0.09,
       cymbal: true),
-  DrumPieceDef('tom1', 'Tom 1', 1, x: 0.40, y: 0.73, size: 0.058),
-  DrumPieceDef('tom2', 'Tom 2', 1, x: 0.56, y: 0.73, size: 0.058),
-  DrumPieceDef('floor', 'Tom piso', 1, x: 0.87, y: 0.84, size: 0.072),
-  DrumPieceDef('snare', 'Redoblante', 1, x: 0.27, y: 0.83, size: 0.07),
-  DrumPieceDef('chancha', 'Chancha', 1, x: 0.13, y: 0.89, size: 0.066),
+  DrumPieceDef('tom1', 'Tom 1', 1, x: 0.42, y: 0.71, size: 0.058),
+  DrumPieceDef('tom2', 'Tom 2', 1, x: 0.58, y: 0.71, size: 0.058),
+  DrumPieceDef('floor', 'Tom piso', 1, x: 0.86, y: 0.86, size: 0.072),
+  DrumPieceDef('chancha', 'Chancha', 1, x: 0.72, y: 0.87, size: 0.068),
+  DrumPieceDef('snare', 'Redoblante', 1, x: 0.15, y: 0.87, size: 0.075),
   DrumPieceDef('kick', 'Bombo', 0, x: 0.50, y: 0.90, size: 0.11),
-  DrumPieceDef('leguero', 'Bombo legüero', 0, x: 0.30, y: 0.93, size: 0.085),
+  DrumPieceDef('leguero', 'Bombo legüero', 0, x: 0.32, y: 0.95, size: 0.078),
 ];
 
 /// Piezas por defecto (las 3 que la app distingue por sonido).
