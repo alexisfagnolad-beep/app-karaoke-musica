@@ -17,7 +17,8 @@ class DrumLearnScreen extends StatefulWidget {
     required this.instrumentalPath,
     required this.title,
     required this.rhythm,
-  }) : builtInDuration = null;
+  }) : builtInDuration = null,
+       builtInPieces = null;
 
   /// Patrón rítmico prediseñado (sin audio, con metrónomo interno).
   const DrumLearnScreen.builtIn({
