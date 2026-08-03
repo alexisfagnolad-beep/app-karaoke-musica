@@ -277,18 +277,16 @@ class _LearnPainter extends CustomPainter {
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
         );
       }
-      // Nombre de la nota (Do-Re-Mi) sobre la barra, si entra.
-      if ((x1 - x0) > 24) {
-        _text(
-          canvas,
-          _noteName(n.midi),
-          Offset((x0 + x1) / 2, y),
-          Colors.white,
-          (noteH * 0.7).clamp(9.0, 14.0),
-        );
-      } else if (!_whitePc.contains(n.midi % 12)) {
-        _text(canvas, '♯', Offset(x0 - 10, y), Colors.white, 12);
-      }
+      // Nombre de la nota (Do-Re-Mi) ARRIBA de la barra, más grande y con el
+      // color del teclado, moviéndose junto con la barra.
+      final fs = (staffSpace * 0.95).clamp(13.0, 22.0);
+      _text(
+        canvas,
+        _noteName(n.midi),
+        Offset((x0 + x1) / 2, y - noteH / 2 - fs * 0.7),
+        kNoteColors[n.midi % 12],
+        fs,
+      );
     }
 
     // Línea "ahora".

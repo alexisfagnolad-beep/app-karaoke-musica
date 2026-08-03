@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../data/karaoke_controller.dart';
 import '../domain/scoring.dart';
+import 'piano_roll_view.dart' show kNoteColors;
 
-// Nombres Do-Re-Mi por clase de nota (solo blancas; el resto va sin nombre).
+// Nombres Do-Re-Mi por clase de nota (solo blancas; las negras llevan ♯).
 const Map<int, String> _solfege = {
   0: 'Do',
   2: 'Re',
@@ -15,6 +16,12 @@ const Map<int, String> _solfege = {
   9: 'La',
   11: 'Si',
 };
+
+/// Nombre lúdico de la nota (Do-Re-Mi, con ♯ para negras).
+String _noteName(int midi) {
+  final pc = midi % 12;
+  return _solfege[pc] ?? '${_solfege[(pc - 1) % 12]}♯';
+}
 
 /// Vista tipo karaoke (SingStar): la línea melódica dibujada como barras que
 /// se desplazan de derecha a izquierda. Cuando cantás sobre la barra, se
@@ -197,11 +204,16 @@ class _PitchRollPainter extends CustomPainter {
         );
       }
 
-      // Nombre de la nota (Do-Re-Mi) sobre la barra, si entra.
-      final name = _solfege[n.midi % 12];
-      if (name != null && (x1 - x0) > 22 && barH >= 13) {
-        _label(canvas, name, Offset((x0 + x1) / 2, y), barH);
-      }
+      // Nombre de la nota (Do-Re-Mi) ARRIBA de la barra, grande y con el color
+      // del teclado, moviéndose junto con la barra.
+      final fs = (barH * 1.15).clamp(15.0, 24.0);
+      _label(
+        canvas,
+        _noteName(n.midi),
+        Offset((x0 + x1) / 2, y - barH / 2 - fs * 0.7),
+        kNoteColors[n.midi % 12],
+        fs,
+      );
     }
 
     // Línea "ahora".
@@ -239,13 +251,19 @@ class _PitchRollPainter extends CustomPainter {
     }
   }
 
-  void _label(Canvas canvas, String s, Offset center, double barH) {
+  void _label(
+    Canvas canvas,
+    String s,
+    Offset center,
+    Color color,
+    double fontSize,
+  ) {
     final tp = TextPainter(
       text: TextSpan(
         text: s,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: (barH * 0.72).clamp(9.0, 14.0),
+          color: color,
+          fontSize: fontSize,
           fontWeight: FontWeight.bold,
         ),
       ),

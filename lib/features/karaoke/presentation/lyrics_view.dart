@@ -39,9 +39,11 @@ class _LyricsViewState extends State<LyricsView>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dim = theme.colorScheme.onSurface.withValues(alpha: 0.45);
-    final bright = theme.colorScheme.onSurface;
-    const accent = Color(0xFF4AE3B5);
+    final dim = theme.colorScheme.onSurface.withValues(alpha: 0.4);
+    // Colores llamativos para la letra: lo cantado en un naranja cálido y la
+    // palabra que va sonando en amarillo brillante.
+    const bright = Color(0xFFFF8A3D);
+    const accent = Color(0xFFFFD24A);
 
     return AnimatedBuilder(
       animation: _ticker,
