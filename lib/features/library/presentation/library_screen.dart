@@ -12,6 +12,7 @@ import '../../karaoke/presentation/drum_learn_screen.dart';
 import '../../karaoke/presentation/karaoke_screen.dart';
 import '../../karaoke/presentation/piano_learn_screen.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../sync/data/sync_service.dart';
 import '../data/library_repository.dart';
 import '../domain/song.dart';
 
@@ -31,11 +32,13 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   final LibraryRepository _repo = LibraryRepository();
+  late final SyncService _syncService = SyncService(_repo);
   final TextEditingController _searchCtrl = TextEditingController();
   String? _genre;
   String? _instrument;
   String _search = '';
   bool _sortByTitle = false; // false = más recientes primero
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -47,8 +50,37 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _syncService.dispose();
     _repo.dispose();
     super.dispose();
+  }
+
+  /// Baja de la PC las canciones nuevas y las agrega acá (aparecen solas).
+  Future<void> _sync() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    try {
+      final added = await _syncService.autoDownloadNew();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            added > 0
+                ? (added == 1
+                      ? 'Se agregó 1 canción de la PC.'
+                      : 'Se agregaron $added canciones de la PC.')
+                : (_syncService.message ?? 'No hay canciones nuevas en la PC.'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No pude sincronizar: $e')));
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   List<Song> _visibleSongs() {
@@ -293,6 +325,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
         widget.titleOverride ?? 'Biblioteca',
         colors: const [AppColors.teal, AppColors.blue],
         actions: [
+          _syncing
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  tooltip: 'Sincronizar con la PC',
+                  icon: const Icon(Icons.cloud_sync),
+                  onPressed: _sync,
+                ),
           PopupMenuButton<bool>(
             icon: const Icon(Icons.sort),
             tooltip: 'Ordenar',
