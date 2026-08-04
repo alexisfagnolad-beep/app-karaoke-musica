@@ -231,8 +231,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _learnPiano(Song song) {
     if (song.melodyPath == null) return;
     Melody melody;
+    Lyrics? lyrics;
     try {
       melody = Melody.parse(File(song.melodyPath!).readAsStringSync());
+      if (song.lyricsPath != null) {
+        lyrics = Lyrics.parse(File(song.lyricsPath!).readAsStringSync());
+      }
     } catch (_) {
       ScaffoldMessenger.of(
         context,
@@ -245,6 +249,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           instrumentalPath: song.path,
           title: song.title,
           melody: melody,
+          lyrics: lyrics,
         ),
       ),
     );

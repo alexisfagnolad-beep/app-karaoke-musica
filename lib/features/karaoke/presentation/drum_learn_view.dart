@@ -16,6 +16,7 @@ class DrumPieceDef {
   final double y;
   final double size;
   final bool cymbal;
+  final Color color;
 
   const DrumPieceDef(
     this.id,
@@ -24,27 +25,35 @@ class DrumPieceDef {
     required this.x,
     required this.y,
     required this.size,
+    required this.color,
     this.cymbal = false,
   });
 }
 
 /// Catálogo de piezas disponibles para armar la batería. Distribución tipo
 /// batería real (vista de frente): redoblante a la izquierda, hi-hat, toms
-/// arriba con el crash entre medio, bombo grande al centro, ride a la derecha y
-/// el tom de piso / chancha a la derecha del todo.
+/// arriba con el crash entre medio, bombo grande al centro, ride a la derecha, y
+/// chancha + bombo legüero a la derecha del todo. Cada pieza tiene su color, y
+/// las notas que caen usan ese mismo color (más didáctico).
 const List<DrumPieceDef> kDrumPieces = [
-  DrumPieceDef('crash', 'Platillo (crash)', 2, x: 0.50, y: 0.61, size: 0.10,
-      cymbal: true),
-  DrumPieceDef('ride', 'Ride', 2, x: 0.80, y: 0.64, size: 0.11, cymbal: true),
-  DrumPieceDef('hihat', 'Hi-hat', 2, x: 0.28, y: 0.68, size: 0.09,
-      cymbal: true),
-  DrumPieceDef('tom1', 'Tom 1', 1, x: 0.42, y: 0.71, size: 0.058),
-  DrumPieceDef('tom2', 'Tom 2', 1, x: 0.58, y: 0.71, size: 0.058),
-  DrumPieceDef('floor', 'Tom piso', 1, x: 0.86, y: 0.86, size: 0.072),
-  DrumPieceDef('chancha', 'Chancha', 1, x: 0.72, y: 0.87, size: 0.068),
-  DrumPieceDef('snare', 'Redoblante', 1, x: 0.15, y: 0.87, size: 0.075),
-  DrumPieceDef('kick', 'Bombo', 0, x: 0.50, y: 0.90, size: 0.11),
-  DrumPieceDef('leguero', 'Bombo legüero', 0, x: 0.32, y: 0.95, size: 0.078),
+  DrumPieceDef('crash', 'Platillo (crash)', 2,
+      x: 0.50, y: 0.61, size: 0.10, cymbal: true, color: Color(0xFFAB47BC)),
+  DrumPieceDef('ride', 'Ride', 2,
+      x: 0.82, y: 0.62, size: 0.11, cymbal: true, color: Color(0xFF42A5F5)),
+  DrumPieceDef('hihat', 'Hi-hat', 2,
+      x: 0.28, y: 0.68, size: 0.09, cymbal: true, color: Color(0xFF4FC3F7)),
+  DrumPieceDef('tom1', 'Tom 1', 1,
+      x: 0.42, y: 0.71, size: 0.058, color: Color(0xFF66BB6A)),
+  DrumPieceDef('tom2', 'Tom 2', 1,
+      x: 0.58, y: 0.71, size: 0.058, color: Color(0xFF26C6DA)),
+  DrumPieceDef('chancha', 'Chancha', 1,
+      x: 0.74, y: 0.87, size: 0.068, color: Color(0xFFFF8A3D)),
+  DrumPieceDef('snare', 'Redoblante', 1,
+      x: 0.15, y: 0.87, size: 0.075, color: Color(0xFFFFCA28)),
+  DrumPieceDef('kick', 'Bombo', 0,
+      x: 0.50, y: 0.90, size: 0.11, color: Color(0xFFEF5350)),
+  DrumPieceDef('leguero', 'Bombo legüero', 0,
+      x: 0.90, y: 0.90, size: 0.078, color: Color(0xFF8D6E63)),
 ];
 
 /// Piezas por defecto (las 3 que la app distingue por sonido).
@@ -97,9 +106,11 @@ class _DrumLearnViewState extends State<DrumLearnView>
     return LayoutBuilder(
       builder: (context, cons) {
         final size = Size(cons.maxWidth, cons.maxHeight);
-        return GestureDetector(
+        // Listener (no GestureDetector): permite golpear DOS o más piezas a la
+        // vez (un dedo por pieza).
+        return Listener(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => _onTap(d.localPosition, size),
+          onPointerDown: (e) => _onTap(e.localPosition, size),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -236,7 +247,7 @@ class _DrumLearnPainter extends CustomPainter {
       canvas.drawCircle(
         Offset(x, cy),
         r,
-        Paint()..color = glow ? _kHit : colors[band],
+        Paint()..color = glow ? _kHit : (def?.color ?? colors[band]),
       );
       canvas.drawCircle(
         Offset(x, cy),
@@ -318,7 +329,7 @@ class _DrumLearnPainter extends CustomPainter {
       final center = Offset(w * def.x, h * def.y);
       final ht = c.lastPieceHitT[def.id] ?? -1e9;
       final on = (pos - ht) < 0.22;
-      final color = colors[def.band.clamp(0, 2)];
+      final color = def.color;
       if (def.cymbal) {
         _cymbal(canvas, center, w * def.size, color, on);
       } else {

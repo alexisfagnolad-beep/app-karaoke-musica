@@ -400,7 +400,7 @@ final List<BuiltInPattern> builtInPatterns = [
     [0, 'snare'], [0.5, 'snare'],
     [1, 'tom1'], [1.5, 'tom1'],
     [2, 'tom2'], [2.5, 'tom2'],
-    [3, 'floor'], [3.5, 'floor'],
+    [3, 'chancha'], [3.5, 'chancha'],
   ]),
   _patP('Rock con platillos', Icons.album, 88, 4, const [
     [0, 'crash'], [0, 'kick'],

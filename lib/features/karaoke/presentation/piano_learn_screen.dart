@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../shared/ui/app_ui.dart';
 import '../../../shared/ui/celebration.dart';
 import '../data/karaoke_controller.dart';
+import '../domain/lyrics.dart';
 import '../domain/melody.dart';
 import 'piano_learn_view.dart';
 import 'tempo_button.dart';
@@ -17,6 +18,7 @@ class PianoLearnScreen extends StatefulWidget {
     required this.instrumentalPath,
     required this.title,
     required this.melody,
+    this.lyrics,
   }) : builtInNotes = null,
        builtInDuration = null;
 
@@ -26,6 +28,7 @@ class PianoLearnScreen extends StatefulWidget {
     required this.title,
     required List<MelodyNote> notes,
     required double duration,
+    this.lyrics,
   }) : builtInNotes = notes,
        builtInDuration = duration,
        instrumentalPath = null,
@@ -36,6 +39,7 @@ class PianoLearnScreen extends StatefulWidget {
   final Melody? melody;
   final List<MelodyNote>? builtInNotes;
   final double? builtInDuration;
+  final Lyrics? lyrics;
 
   @override
   State<PianoLearnScreen> createState() => _PianoLearnScreenState();
@@ -79,7 +83,7 @@ class _PianoLearnScreenState extends State<PianoLearnScreen> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              PianoLearnView(controller: _c),
+              PianoLearnView(controller: _c, lyrics: widget.lyrics),
               _overlay(),
             ],
           );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/karaoke_controller.dart';
+import '../domain/lyrics.dart';
 import 'piano_roll_view.dart' show kNoteColors;
 
 const Set<int> _whitePc = {0, 2, 4, 5, 7, 9, 11};
@@ -23,9 +24,12 @@ const Color _kHit = Color(0xFF4AE3B5);
 /// tocar con los dedos (multitáctil, notas sostenidas); si tocás justo la nota
 /// al pasar por la línea, la tecla y la nota brillan.
 class PianoLearnView extends StatefulWidget {
-  const PianoLearnView({super.key, required this.controller});
+  const PianoLearnView({super.key, required this.controller, this.lyrics});
 
   final KaraokeController controller;
+
+  /// Letra sincronizada (opcional), para mostrar la sílaba sobre cada nota.
+  final Lyrics? lyrics;
 
   @override
   State<PianoLearnView> createState() => _PianoLearnViewState();
@@ -77,7 +81,7 @@ class _PianoLearnViewState extends State<PianoLearnView>
             fit: StackFit.expand,
             children: [
               CustomPaint(
-                painter: _LearnPainter(widget.controller, _ticker),
+                painter: _LearnPainter(widget.controller, _ticker, widget.lyrics),
                 size: Size.infinite,
               ),
               _buildCountIn(),
@@ -180,9 +184,11 @@ String _noteName(int midi) {
 }
 
 class _LearnPainter extends CustomPainter {
-  _LearnPainter(this.c, Listenable repaint) : super(repaint: repaint);
+  _LearnPainter(this.c, Listenable repaint, this.lyrics)
+    : super(repaint: repaint);
 
   final KaraokeController c;
+  final Lyrics? lyrics;
 
   // Segundos visibles a la derecha. En "Para empezar" (play-along) la ventana
   // es más amplia: las notas viajan más despacio y se leen mejor.
@@ -287,6 +293,17 @@ class _LearnPainter extends CustomPainter {
         kNoteColors[n.midi % 12],
         fs,
       );
+      // Letra (sílaba) DEBAJO de la barra, en amarillo, si la canción tiene.
+      final syl = _syllableAt(n.startT);
+      if (syl != null && syl.isNotEmpty) {
+        _text(
+          canvas,
+          syl,
+          Offset((x0 + x1) / 2, y + noteH / 2 + fs * 0.7),
+          const Color(0xFFFFD24A),
+          fs,
+        );
+      }
     }
 
     // Línea "ahora".
@@ -635,6 +652,19 @@ class _LearnPainter extends CustomPainter {
       Colors.white70,
       12,
     );
+  }
+
+  /// Sílaba de la letra que corresponde al arranque de la nota (instante [t]).
+  String? _syllableAt(double t) {
+    final ly = lyrics;
+    if (ly == null) return null;
+    for (final line in ly.lines) {
+      if (t < line.start || t > line.end) continue;
+      for (final w in line.words) {
+        if (t >= w.start && t < w.end) return w.text;
+      }
+    }
+    return null;
   }
 
   void _text(
