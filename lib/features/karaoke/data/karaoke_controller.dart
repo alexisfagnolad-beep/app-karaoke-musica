@@ -365,24 +365,44 @@ class KaraokeController extends ChangeNotifier {
     if (_hitOnsets.add(best)) _goodHits++;
   }
 
-  /// Clasifica un golpe por su "color de sonido" usando la tasa de cruces por
-  /// cero (proxy barato del brillo/centroide, sin FFT):
-  ///  - grave y con pocas cruces  -> bombo (0)
-  ///  - agudo/ruidoso, muchas cruces -> hi-hat (2)
-  ///  - en el medio -> redoblante (1)
+  /// Clasifica un golpe por su "color de sonido" repartiendo la energía en tres
+  /// bandas de frecuencia con filtros de un polo (sin FFT, liviano):
+  ///  - grave (< ~250 Hz)  -> bombo (0)
+  ///  - agudo (> ~2.5 kHz)  -> hi-hat / platillo (2)
+  ///  - medio -> redoblante (1)
+  ///
+  /// Es mucho más preciso que contar cruces por cero: el bombo tiene casi toda
+  /// la energía grave, el hi-hat/platillo casi toda aguda (y muy poca grave), y
+  /// el redoblante reparte con cuerpo en el medio.
   int _bandOf(List<double> block) {
-    if (block.length < 2) return 1;
-    var crossings = 0;
-    var prev = block[0];
-    for (var i = 1; i < block.length; i++) {
-      final v = block[i];
-      if ((v >= 0) != (prev >= 0)) crossings++;
-      prev = v;
+    if (block.length < 8) return 1;
+    // Coeficientes de filtros pasa-bajos de un polo: a = 2*pi*fc/sr.
+    const aLow = 0.0356; // ~250 Hz @ 44100
+    const aMid = 0.356; // ~2500 Hz @ 44100
+    var lp1 = 0.0; // < 250 Hz
+    var lp2 = 0.0; // < 2500 Hz
+    var lowE = 0.0, midE = 0.0, highE = 0.0;
+    for (final x in block) {
+      lp1 += aLow * (x - lp1);
+      lp2 += aMid * (x - lp2);
+      final low = lp1;
+      final mid = lp2 - lp1;
+      final high = x - lp2;
+      lowE += low * low;
+      midE += mid * mid;
+      highE += high * high;
     }
-    final zcr = crossings / block.length;
-    if (zcr < 0.06) return 0; // bombo
-    if (zcr > 0.20) return 2; // hi-hat
-    return 1; // redoblante
+    final total = lowE + midE + highE + 1e-12;
+    final lo = lowE / total;
+    final mi = midE / total;
+    final hi = highE / total;
+
+    // Bombo: domina el grave.
+    if (lo >= mi && lo >= hi && lo > 0.40) return 0;
+    // Hi-hat / platillo: casi todo agudo y muy poco grave/medio.
+    if (hi > 0.50 && lo < 0.20 && mi < 0.32) return 2;
+    // Resto: redoblante (medio, o agudo con cuerpo).
+    return 1;
   }
 
   /// Enciende/apaga la práctica con instrumento físico (micrófono). Se aplica
