@@ -80,13 +80,15 @@ jobs:
       - name: Tests
         run: flutter test
 
-      - name: Compilar APK (release, arm64)
-        # Release + una sola arquitectura (arm64) => APK MUCHO más chico y
-        # rápido (AOT) que el debug fat. Firma estable (usa signingConfigs.debug
-        # = karaoke.keystore, que el buildType release reusa por defecto), así
-        # las actualizaciones se instalan encima sin conflicto de firma.
-        # build-number incremental: cada APK es "más nuevo" que el anterior.
-        run: flutter build apk --release --target-platform android-arm64 --build-number=${{ github.run_number }}
+      - name: Compilar APK (release, ARM 32 y 64 bits)
+        # ARM 32 + 64 bits en un solo APK: así funciona tanto en celulares/
+        # tablets modernos (arm64-v8a) como en tablets económicas y viejas de
+        # 32 bits (armeabi-v7a), por ejemplo varias Amazon Fire, donde un APK
+        # solo-arm64 se instala pero NO abre (le faltan las librerías nativas).
+        # Firma estable (signingConfigs.debug = karaoke.keystore, que el
+        # buildType release reusa), así las actualizaciones se instalan encima
+        # sin conflicto de firma. build-number incremental para el actualizador.
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-number=${{ github.run_number }}
 
       - name: Renombrar APK y generar version.json
         run: |
