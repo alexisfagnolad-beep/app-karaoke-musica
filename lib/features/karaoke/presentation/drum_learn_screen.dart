@@ -89,6 +89,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
               Container(color: Colors.black.withValues(alpha: 0.45)),
               DrumLearnView(controller: _c, pieces: _pieces),
               _overlay(),
+              if (_c.calibrating) _calibOverlay(),
             ],
           );
         },
@@ -136,7 +137,14 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
             if (_c.playAlong && !_c.running)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: _physicalToggle('batería'),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    _physicalToggle('batería'),
+                    if (_c.micPractice) _calibButton(),
+                  ],
+                ),
               ),
             const Spacer(),
             if (!_c.running)
@@ -282,6 +290,92 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
     1 => 'suena como redoblante (medio)',
     _ => 'suena como hi-hat (agudo)',
   };
+
+  List<String> _orderedPieces() =>
+      [for (final d in kDrumPieces) if (_pieces.contains(d.id)) d.id];
+
+  String _pieceLabel(String id) {
+    for (final d in kDrumPieces) {
+      if (d.id == id) return d.label;
+    }
+    return id;
+  }
+
+  /// Botón para calibrar la batería real (aprende el sonido de cada pieza).
+  Widget _calibButton() {
+    return ElevatedButton.icon(
+      onPressed: () => _c.startCalibration(_orderedPieces()),
+      icon: const Icon(Icons.tune),
+      label: Text(_c.isCalibrated ? 'Recalibrar' : 'Calibrar batería'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white24,
+        foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  /// Pantalla de calibración: guía a tocar cada pieza unas veces.
+  Widget _calibOverlay() {
+    final id = _c.calibTarget;
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.82),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '🥁 Calibrando la batería real',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Tocá varias veces la pieza que te pide (fuerte y clarito).',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                id == null ? '¡Listo!' : 'Tocá: ${_pieceLabel(id)}',
+                style: const TextStyle(
+                  color: Color(0xFF4AE3B5),
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${_c.calibCount} / ${KaraokeController.calibPerPiece} golpes',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: 240,
+                child: LinearProgressIndicator(
+                  value: (_c.micLevel).clamp(0.0, 1.0),
+                  backgroundColor: Colors.white24,
+                  color: const Color(0xFFFFCA28),
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: _c.cancelCalibration,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54),
+                ),
+                child: const Text('Cancelar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   /// Toggle bien visible: tocar con instrumento REAL (micrófono). Antes de
   /// empezar. Al activarlo, la app escucha tu batería/piano físico.

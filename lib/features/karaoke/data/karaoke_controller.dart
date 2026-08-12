@@ -405,6 +405,158 @@ class KaraokeController extends ChangeNotifier {
     return 1;
   }
 
+  // ================= Calibración de batería real =================
+  // El chico toca cada pieza unas veces y la app aprende su "huella" (energía
+  // repartida en 4 bandas). Después clasifica cada golpe por la pieza más
+  // parecida: así distingue incluso hi-hat vs platillo, que comparten banda.
+
+  bool calibrating = false;
+  List<String> _calibOrder = [];
+  int _calibIndex = 0;
+  final Map<String, List<List<double>>> _calibSamples = {};
+  final Map<String, List<double>> _drumProfiles = {};
+  final Stopwatch _calibSw = Stopwatch();
+  static const int calibPerPiece = 4;
+
+  static const Map<String, int> _pieceBandMap = {
+    'kick': 0,
+    'leguero': 0,
+    'snare': 1,
+    'chancha': 1,
+    'tom1': 1,
+    'tom2': 1,
+    'hihat': 2,
+    'crash': 2,
+    'ride': 2,
+  };
+  int _bandOfPiece(String id) => _pieceBandMap[id] ?? 1;
+
+  bool get isCalibrated => _drumProfiles.isNotEmpty;
+  String? get calibTarget =>
+      calibrating && _calibIndex < _calibOrder.length
+      ? _calibOrder[_calibIndex]
+      : null;
+  int get calibCount => calibTarget == null
+      ? 0
+      : (_calibSamples[calibTarget]?.length ?? 0);
+
+  /// Vector de rasgos del golpe: energía repartida en 4 bandas
+  /// (grave / medio / agudo / muy agudo), normalizada.
+  List<double> _features(List<double> block) {
+    const a1 = 0.0356; // ~250 Hz
+    const a2 = 0.356; // ~2.5 kHz
+    const a3 = 0.62; // ~5 kHz
+    var lp1 = 0.0, lp2 = 0.0, lp3 = 0.0;
+    var b0 = 0.0, b1 = 0.0, b2 = 0.0, b3 = 0.0;
+    for (final x in block) {
+      lp1 += a1 * (x - lp1);
+      lp2 += a2 * (x - lp2);
+      lp3 += a3 * (x - lp3);
+      final low = lp1;
+      final mid = lp2 - lp1;
+      final ha = lp3 - lp2;
+      final hb = x - lp3;
+      b0 += low * low;
+      b1 += mid * mid;
+      b2 += ha * ha;
+      b3 += hb * hb;
+    }
+    final total = b0 + b1 + b2 + b3 + 1e-12;
+    return [b0 / total, b1 / total, b2 / total, b3 / total];
+  }
+
+  /// Clasifica el golpe por la huella aprendida más cercana. null si no hay
+  /// calibración (se usa el método de bandas por defecto).
+  String? _classifyPiece(List<double> block) {
+    if (_drumProfiles.isEmpty) return null;
+    final f = _features(block);
+    String? best;
+    var bestD = double.infinity;
+    _drumProfiles.forEach((id, prof) {
+      var d = 0.0;
+      for (var i = 0; i < f.length && i < prof.length; i++) {
+        final e = f[i] - prof[i];
+        d += e * e;
+      }
+      if (d < bestD) {
+        bestD = d;
+        best = id;
+      }
+    });
+    return best;
+  }
+
+  /// Empieza la calibración con la lista de piezas a aprender (en orden).
+  Future<void> startCalibration(List<String> pieceIds) async {
+    if (calibrating || _running || pieceIds.isEmpty) return;
+    final ok = await _startMicCapture();
+    if (!ok) {
+      _error = 'Necesito el micrófono para calibrar la batería.';
+      notifyListeners();
+      return;
+    }
+    _onset.reset();
+    micLevel = 0;
+    _calibSw
+      ..reset()
+      ..start();
+    _calibOrder = List.of(pieceIds);
+    _calibIndex = 0;
+    _calibSamples.clear();
+    calibrating = true;
+    notifyListeners();
+  }
+
+  void _onCalibHit(List<double> block) {
+    final target = calibTarget;
+    if (target == null) return;
+    _calibSamples.putIfAbsent(target, () => []).add(_features(block));
+    if (effectsEnabled) HapticFeedback.lightImpact();
+    if ((_calibSamples[target]?.length ?? 0) >= calibPerPiece) {
+      _calibIndex++;
+      if (_calibIndex >= _calibOrder.length) _finishCalibration();
+    }
+  }
+
+  void _finishCalibration() {
+    _drumProfiles.clear();
+    _calibSamples.forEach((id, samples) {
+      if (samples.isEmpty) return;
+      final dim = samples.first.length;
+      final mean = List<double>.filled(dim, 0.0);
+      for (final s in samples) {
+        for (var i = 0; i < dim; i++) {
+          mean[i] += s[i];
+        }
+      }
+      for (var i = 0; i < dim; i++) {
+        mean[i] /= samples.length;
+      }
+      _drumProfiles[id] = mean;
+    });
+    calibrating = false;
+    if (_micActive && !_running) {
+      _micActive = false;
+      try {
+        _capture.stop();
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  /// Cancela la calibración en curso (descarta lo tomado).
+  Future<void> cancelCalibration() async {
+    if (!calibrating) return;
+    calibrating = false;
+    if (_micActive && !_running) {
+      _micActive = false;
+      try {
+        await _capture.stop();
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
   /// Enciende/apaga la práctica con instrumento físico (micrófono). Se aplica
   /// al empezar (no mientras suena).
   void setMicPractice(bool value) {
@@ -646,7 +798,7 @@ class KaraokeController extends ChangeNotifier {
   }
 
   Future<void> _onAudio(dynamic obj) async {
-    if (!_running) return;
+    if (!_running && !calibrating) return;
     final block = (obj as List).cast<double>();
     final t = clock;
 
@@ -658,15 +810,36 @@ class KaraokeController extends ChangeNotifier {
     energy = math.sqrt(energy / block.length);
     micLevel = micLevel * 0.6 + (energy * 6).clamp(0.0, 1.0) * 0.4;
 
+    // Calibrando: cada golpe se guarda como "huella" de la pieza actual. Usamos
+    // el cronómetro (el player no está reproduciendo, así que su posición no
+    // avanza y no serviría para separar golpes).
+    if (calibrating) {
+      final ct = _calibSw.elapsedMilliseconds / 1000.0;
+      if (_onset.process(block, ct)) {
+        _onCalibHit(block);
+      }
+      notifyListeners();
+      return;
+    }
+
     if (isRhythm) {
       if (_onset.process(block, t)) {
         _userOnsets.add(t);
         _hits++;
         lastUserHitT = t;
         if (effectsEnabled) HapticFeedback.lightImpact();
-        // Modo estricto: clasificamos la pieza por su color de sonido y exigimos
-        // que coincida. Modo normal: cuenta cualquier golpe en el momento justo.
-        _registerRhythmHit(t, strictDrums ? _bandOf(block) : null);
+        // Si la batería está calibrada, clasificamos la PIEZA exacta por su
+        // huella aprendida; si no, usamos las 3 bandas por energía.
+        final piece = _classifyPiece(block);
+        if (piece != null) {
+          _registerRhythmHit(
+            t,
+            strictDrums ? _bandOfPiece(piece) : null,
+            piece,
+          );
+        } else {
+          _registerRhythmHit(t, strictDrums ? _bandOf(block) : null);
+        }
       }
       notifyListeners();
     } else {
