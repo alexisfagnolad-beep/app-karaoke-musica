@@ -134,18 +134,17 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                 _optionsMenu(),
               ],
             ),
-            if (_c.playAlong && !_c.running)
+            if (_c.playAlong && !_c.running) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  children: [
-                    _physicalToggle('batería'),
-                    if (_c.micPractice) _calibButton(),
-                  ],
-                ),
+                child: _physicalToggle('batería'),
               ),
+              if (_c.micPractice)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _calibButton(),
+                ),
+            ],
             const Spacer(),
             if (!_c.running)
               Align(
@@ -301,15 +300,23 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
     return id;
   }
 
-  /// Botón para calibrar la batería real (aprende el sonido de cada pieza).
+  /// Botón APARTE y destacado para la calibración profunda de la batería real:
+  /// aprende la huella de sonido de cada pieza para máxima precisión.
   Widget _calibButton() {
+    final done = _c.isCalibrated;
     return ElevatedButton.icon(
       onPressed: () => _c.startCalibration(_orderedPieces()),
-      icon: const Icon(Icons.tune),
-      label: Text(_c.isCalibrated ? 'Recalibrar' : 'Calibrar batería'),
+      icon: Icon(done ? Icons.check_circle : Icons.graphic_eq),
+      label: Text(
+        done
+            ? 'Batería calibrada ✓ — recalibrar'
+            : 'Calibrar mi batería (más preciso)',
+      ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white24,
+        backgroundColor: done ? const Color(0xFF1DB6A2) : const Color(0xFF7C4DFF),
         foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -325,7 +332,7 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '🥁 Calibrando la batería real',
+                '🥁 Calibrando tu batería',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -333,9 +340,11 @@ class _DrumLearnScreenState extends State<DrumLearnScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Tocá varias veces la pieza que te pide (fuerte y clarito).',
-                style: TextStyle(color: Colors.white70),
+              Text(
+                'Pieza ${_c.calibStep} de ${_c.calibTotal} · tocá siempre igual '
+                '(misma fuerza, celu cerca, sin ruido).',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 18),
               Text(

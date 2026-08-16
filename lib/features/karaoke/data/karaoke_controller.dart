@@ -414,9 +414,11 @@ class KaraokeController extends ChangeNotifier {
   List<String> _calibOrder = [];
   int _calibIndex = 0;
   final Map<String, List<List<double>>> _calibSamples = {};
-  final Map<String, List<double>> _drumProfiles = {};
+  final Map<String, List<double>> _drumProfiles = {}; // perfiles estandarizados
+  List<double> _featMean = const []; // media global por dimensión
+  List<double> _featStd = const []; // desvío global por dimensión
   final Stopwatch _calibSw = Stopwatch();
-  static const int calibPerPiece = 4;
+  static const int calibPerPiece = 6;
 
   static const Map<String, int> _pieceBandMap = {
     'kick': 0,
@@ -439,37 +441,63 @@ class KaraokeController extends ChangeNotifier {
   int get calibCount => calibTarget == null
       ? 0
       : (_calibSamples[calibTarget]?.length ?? 0);
+  int get calibStep => _calibIndex + 1;
+  int get calibTotal => _calibOrder.length;
 
-  /// Vector de rasgos del golpe: energía repartida en 4 bandas
-  /// (grave / medio / agudo / muy agudo), normalizada.
+  /// Vector de rasgos del golpe (8 dimensiones): energía repartida en 6 bandas
+  /// de frecuencia + centroide espectral + tasa de cruces por cero. Cuanto más
+  /// rico el rasgo, mejor separa piezas parecidas (hi-hat vs platillo).
   List<double> _features(List<double> block) {
-    const a1 = 0.0356; // ~250 Hz
-    const a2 = 0.356; // ~2.5 kHz
-    const a3 = 0.62; // ~5 kHz
-    var lp1 = 0.0, lp2 = 0.0, lp3 = 0.0;
-    var b0 = 0.0, b1 = 0.0, b2 = 0.0, b3 = 0.0;
+    // Filtros pasa-bajos de un polo (a = 2*pi*fc/sr @ 44100).
+    const a = [0.0171, 0.0427, 0.114, 0.285, 0.712]; // 120,300,800,2000,5000 Hz
+    const centers = [80.0, 210.0, 550.0, 1400.0, 3500.0, 7000.0];
+    final lp = List<double>.filled(a.length, 0.0);
+    final bandE = List<double>.filled(a.length + 1, 0.0);
+    var crossings = 0;
+    var prev = block.isEmpty ? 0.0 : block[0];
     for (final x in block) {
-      lp1 += a1 * (x - lp1);
-      lp2 += a2 * (x - lp2);
-      lp3 += a3 * (x - lp3);
-      final low = lp1;
-      final mid = lp2 - lp1;
-      final ha = lp3 - lp2;
-      final hb = x - lp3;
-      b0 += low * low;
-      b1 += mid * mid;
-      b2 += ha * ha;
-      b3 += hb * hb;
+      var lower = 0.0;
+      for (var k = 0; k < a.length; k++) {
+        lp[k] += a[k] * (x - lp[k]);
+        final band = lp[k] - lower;
+        bandE[k] += band * band;
+        lower = lp[k];
+      }
+      final top = x - lp[a.length - 1];
+      bandE[a.length] += top * top;
+      if ((x >= 0) != (prev >= 0)) crossings++;
+      prev = x;
     }
-    final total = b0 + b1 + b2 + b3 + 1e-12;
-    return [b0 / total, b1 / total, b2 / total, b3 / total];
+    var total = 1e-12;
+    for (final e in bandE) {
+      total += e;
+    }
+    final feat = <double>[for (final e in bandE) e / total];
+    // Centroide espectral (normalizado a ~0..1).
+    var centroid = 0.0;
+    for (var k = 0; k < feat.length; k++) {
+      centroid += feat[k] * centers[k];
+    }
+    feat.add((centroid / 8000.0).clamp(0.0, 1.0));
+    // Cruces por cero (0..~0.5).
+    feat.add(crossings / (block.isEmpty ? 1 : block.length));
+    return feat;
   }
 
-  /// Clasifica el golpe por la huella aprendida más cercana. null si no hay
-  /// calibración (se usa el método de bandas por defecto).
+  /// Rasgo estandarizado (z-score) usando la media/desvío global aprendidos.
+  List<double> _standardize(List<double> f) {
+    if (_featMean.length != f.length) return f;
+    return [
+      for (var i = 0; i < f.length; i++)
+        (f[i] - _featMean[i]) / (_featStd[i] + 1e-6),
+    ];
+  }
+
+  /// Clasifica el golpe por la huella aprendida más cercana (en el espacio
+  /// estandarizado). null si no hay calibración (se usa el método por bandas).
   String? _classifyPiece(List<double> block) {
     if (_drumProfiles.isEmpty) return null;
-    final f = _features(block);
+    final f = _standardize(_features(block));
     String? best;
     var bestD = double.infinity;
     _drumProfiles.forEach((id, prof) {
@@ -520,19 +548,55 @@ class KaraokeController extends ChangeNotifier {
 
   void _finishCalibration() {
     _drumProfiles.clear();
+    // Todas las muestras juntas, para la media y el desvío global por dimensión.
+    final all = <List<double>>[];
+    _calibSamples.forEach((_, s) => all.addAll(s));
+    if (all.isEmpty) {
+      calibrating = false;
+      if (_micActive && !_running) {
+        _micActive = false;
+        try {
+          _capture.stop();
+        } catch (_) {}
+      }
+      notifyListeners();
+      return;
+    }
+    final dim = all.first.length;
+    final mean = List<double>.filled(dim, 0.0);
+    for (final s in all) {
+      for (var i = 0; i < dim; i++) {
+        mean[i] += s[i];
+      }
+    }
+    for (var i = 0; i < dim; i++) {
+      mean[i] /= all.length;
+    }
+    final variance = List<double>.filled(dim, 0.0);
+    for (final s in all) {
+      for (var i = 0; i < dim; i++) {
+        final e = s[i] - mean[i];
+        variance[i] += e * e;
+      }
+    }
+    for (var i = 0; i < dim; i++) {
+      variance[i] = math.sqrt(variance[i] / all.length);
+    }
+    _featMean = mean;
+    _featStd = variance;
+    // Perfil de cada pieza = media de sus muestras, estandarizada.
     _calibSamples.forEach((id, samples) {
       if (samples.isEmpty) return;
-      final dim = samples.first.length;
-      final mean = List<double>.filled(dim, 0.0);
+      final m = List<double>.filled(dim, 0.0);
       for (final s in samples) {
         for (var i = 0; i < dim; i++) {
-          mean[i] += s[i];
+          m[i] += s[i];
         }
       }
       for (var i = 0; i < dim; i++) {
-        mean[i] /= samples.length;
+        m[i] /= samples.length;
       }
-      _drumProfiles[id] = mean;
+      _drumProfiles[id] = _standardize(m);
     });
     calibrating = false;
     if (_micActive && !_running) {
