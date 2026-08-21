@@ -1,0 +1,115 @@
+name: Build APK (Android)
+
+# Compila un APK de debug instalable en Android y corre los tests.
+# Como el repo todavía no tiene la carpeta nativa android/, el workflow la
+# genera con `flutter create .` y le inyecta el permiso de micrófono.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Necesario para que el job pueda crear/actualizar la Release con el APK.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generar carpetas nativas (android)
+        run: flutter create . --platforms=android --project-name karaoke_musica
+
+      # Firma todos los builds con la MISMA clave fija (ci/debug.keystore) en
+      # vez de una aleatoria por runner. Así las actualizaciones se instalan
+      # sobre la app anterior sin "conflicto con un paquete" por firma distinta.
+      # Se inyecta un signingConfig explícito en Gradle (no alcanza con copiar
+      # el debug keystore: en los runners Gradle usa otra ruta y regenera uno).
+      - name: Firmar con clave fija
+        run: |
+          cp ci/debug.keystore android/app/karaoke.keystore
+          python3 ci/patch_signing.py
+
+      # Instala el decodificador de audio nativo (MediaCodec) reemplazando la
+      # MainActivity generada por flutter create.
+      - name: Instalar decodificador nativo (MainActivity)
+        run: |
+          DEST=$(find android/app/src/main -name MainActivity.kt | head -1)
+          if [ -z "$DEST" ]; then echo "No encontré MainActivity.kt"; exit 1; fi
+          echo "Reemplazando $DEST"
+          cp ci/MainActivity.kt "$DEST"
+          head -3 "$DEST"
+
+      - name: Inyectar permisos (internet + micrófono + instalar APKs)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          # INTERNET: Flutter solo lo agrega al manifest de debug; en release
+          # falta y la app no puede conectarse ("Failed host lookup").
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET" />\n    <application|' "$MANIFEST"
+          fi
+          if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application|' "$MANIFEST"
+          fi
+          # Necesario para que el actualizador integrado pueda instalar el APK.
+          if ! grep -q "android.permission.REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <application|' "$MANIFEST"
+          fi
+          echo "----- AndroidManifest.xml -----"
+          cat "$MANIFEST"
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Tests
+        run: flutter test
+
+      - name: Compilar APK (release, ARM 32 y 64 bits)
+        # ARM 32 + 64 bits en un solo APK: así funciona tanto en celulares/
+        # tablets modernos (arm64-v8a) como en tablets económicas y viejas de
+        # 32 bits (armeabi-v7a), por ejemplo varias Amazon Fire, donde un APK
+        # solo-arm64 se instala pero NO abre (le faltan las librerías nativas).
+        # Firma estable (signingConfigs.debug = karaoke.keystore, que el
+        # buildType release reusa), así las actualizaciones se instalan encima
+        # sin conflicto de firma. build-number incremental para el actualizador.
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-number=${{ github.run_number }}
+
+      - name: Renombrar APK y generar version.json
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk karaoke-musica-debug.apk
+          # version.json: lo lee el actualizador integrado para saber si hay
+          # una versión más nueva que la instalada (compara buildNumber).
+          VERSION_NAME=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
+          printf '{"buildNumber": %s, "versionName": "%s"}\n' "${{ github.run_number }}" "$VERSION_NAME" > version.json
+          cat version.json
+
+      # Publica el APK y version.json en una Release con tag fijo: la URL queda
+      # estable y se actualizan los mismos archivos en cada build de la rama.
+      - name: Publicar en Release (link estable)
+        if: github.ref == 'refs/heads/claude/charming-thompson-21cbj2'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: APK de Karaoke (Android, debug)
+          body: |
+            APK de debug del Modo Karaoke Rápido. Se actualiza automáticamente
+            en cada build. Descargá `karaoke-musica-debug.apk` de abajo.
+          files: |
+            karaoke-musica-debug.apk
+            version.json

@@ -1,0 +1,9 @@
+# Motor de PC — dependencias de Python
+#
+# Demucs trae PyTorch (versión CPU por defecto en Windows).
+# La primera instalación baja ~1-2 GB; tené paciencia.
+
+demucs>=4.0.0
+soundfile>=0.12.1
+# Transcripción de la letra (usa el PyTorch que ya trae Demucs).
+openai-whisper>=20231117
