@@ -14,6 +14,7 @@ import '../domain/melody.dart';
 import '../domain/rhythm.dart';
 import '../domain/scoring.dart';
 import '../domain/tone_synth.dart';
+import 'drum_calibration.dart';
 import 'instrument_audio.dart';
 import 'pitch_worker.dart';
 
@@ -210,6 +211,15 @@ class KaraokeController extends ChangeNotifier {
     _instr = InstrumentAudio()
       ..preloadNotes([for (var m = lo - 2; m <= hi + 2; m++) m]);
     _loadFuture = _prepareTrack(ToneSynth.renderMelody(builtNotes, duration));
+  }
+
+  /// Prepara el controlador solo para CALIBRAR (sin canción). Marca modo
+  /// rítmico (batería) para no arrancar el detector de tono innecesario.
+  void loadForCalibration() {
+    _rhythm = const Rhythm(onsets: []);
+    _melody = null;
+    playAlong = false;
+    _instr = InstrumentAudio()..preloadDrums();
   }
 
   /// Carga un patrón rítmico prediseñado (lo sintetiza a audio y prepara los
@@ -414,9 +424,6 @@ class KaraokeController extends ChangeNotifier {
   List<String> _calibOrder = [];
   int _calibIndex = 0;
   final Map<String, List<List<double>>> _calibSamples = {};
-  final Map<String, List<double>> _drumProfiles = {}; // perfiles estandarizados
-  List<double> _featMean = const []; // media global por dimensión
-  List<double> _featStd = const []; // desvío global por dimensión
   final Stopwatch _calibSw = Stopwatch();
   static const int calibPerPiece = 6;
 
@@ -433,7 +440,7 @@ class KaraokeController extends ChangeNotifier {
   };
   int _bandOfPiece(String id) => _pieceBandMap[id] ?? 1;
 
-  bool get isCalibrated => _drumProfiles.isNotEmpty;
+  bool get isCalibrated => DrumCalibration.isCalibrated;
   String? get calibTarget =>
       calibrating && _calibIndex < _calibOrder.length
       ? _calibOrder[_calibIndex]
@@ -486,21 +493,22 @@ class KaraokeController extends ChangeNotifier {
 
   /// Rasgo estandarizado (z-score) usando la media/desvío global aprendidos.
   List<double> _standardize(List<double> f) {
-    if (_featMean.length != f.length) return f;
+    final mean = DrumCalibration.featMean;
+    final std = DrumCalibration.featStd;
+    if (mean.length != f.length) return f;
     return [
-      for (var i = 0; i < f.length; i++)
-        (f[i] - _featMean[i]) / (_featStd[i] + 1e-6),
+      for (var i = 0; i < f.length; i++) (f[i] - mean[i]) / (std[i] + 1e-6),
     ];
   }
 
   /// Clasifica el golpe por la huella aprendida más cercana (en el espacio
   /// estandarizado). null si no hay calibración (se usa el método por bandas).
   String? _classifyPiece(List<double> block) {
-    if (_drumProfiles.isEmpty) return null;
+    if (DrumCalibration.profiles.isEmpty) return null;
     final f = _standardize(_features(block));
     String? best;
     var bestD = double.infinity;
-    _drumProfiles.forEach((id, prof) {
+    DrumCalibration.profiles.forEach((id, prof) {
       var d = 0.0;
       for (var i = 0; i < f.length && i < prof.length; i++) {
         final e = f[i] - prof[i];
@@ -547,18 +555,12 @@ class KaraokeController extends ChangeNotifier {
   }
 
   void _finishCalibration() {
-    _drumProfiles.clear();
     // Todas las muestras juntas, para la media y el desvío global por dimensión.
     final all = <List<double>>[];
     _calibSamples.forEach((_, s) => all.addAll(s));
     if (all.isEmpty) {
       calibrating = false;
-      if (_micActive && !_running) {
-        _micActive = false;
-        try {
-          _capture.stop();
-        } catch (_) {}
-      }
+      _stopCalibMic();
       notifyListeners();
       return;
     }
@@ -572,19 +574,21 @@ class KaraokeController extends ChangeNotifier {
     for (var i = 0; i < dim; i++) {
       mean[i] /= all.length;
     }
-    final variance = List<double>.filled(dim, 0.0);
+    final std = List<double>.filled(dim, 0.0);
     for (final s in all) {
       for (var i = 0; i < dim; i++) {
         final e = s[i] - mean[i];
-        variance[i] += e * e;
+        std[i] += e * e;
       }
     }
     for (var i = 0; i < dim; i++) {
-      variance[i] = math.sqrt(variance[i] / all.length);
+      std[i] = math.sqrt(std[i] / all.length);
     }
-    _featMean = mean;
-    _featStd = variance;
     // Perfil de cada pieza = media de sus muestras, estandarizada.
+    List<double> standardize(List<double> f) => [
+      for (var i = 0; i < f.length; i++) (f[i] - mean[i]) / (std[i] + 1e-6),
+    ];
+    final profiles = <String, List<double>>{};
     _calibSamples.forEach((id, samples) {
       if (samples.isEmpty) return;
       final m = List<double>.filled(dim, 0.0);
@@ -596,16 +600,22 @@ class KaraokeController extends ChangeNotifier {
       for (var i = 0; i < dim; i++) {
         m[i] /= samples.length;
       }
-      _drumProfiles[id] = _standardize(m);
+      profiles[id] = standardize(m);
     });
+    // Guarda PARA SIEMPRE (memoria + disco): no hay que recalibrar por canción.
+    DrumCalibration.save(profiles, mean, std);
     calibrating = false;
+    _stopCalibMic();
+    notifyListeners();
+  }
+
+  void _stopCalibMic() {
     if (_micActive && !_running) {
       _micActive = false;
       try {
         _capture.stop();
       } catch (_) {}
     }
-    notifyListeners();
   }
 
   /// Cancela la calibración en curso (descarta lo tomado).

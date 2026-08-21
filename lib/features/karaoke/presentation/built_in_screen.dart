@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/app_ui.dart';
 import '../domain/built_in_songs.dart';
+import 'drum_calibration_screen.dart';
 import 'drum_learn_screen.dart';
 import 'piano_learn_screen.dart';
 
@@ -57,6 +58,29 @@ class BuiltInScreen extends StatelessWidget {
               ),
             const SizedBox(height: 12),
             _section(context, '🥁 Patrones de batería'),
+            Card(
+              color: const Color(0x147C4DFF),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0x337C4DFF),
+                  child: Icon(Icons.graphic_eq, color: Color(0xFF7C4DFF)),
+                ),
+                title: const Text(
+                  'Calibrar mi batería real',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Una vez, para que el micrófono reconozca tus piezas. '
+                  'Queda guardada.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const DrumCalibrationScreen(),
+                  ),
+                ),
+              ),
+            ),
             for (final p in builtInPatterns)
               _tile(
                 context,
